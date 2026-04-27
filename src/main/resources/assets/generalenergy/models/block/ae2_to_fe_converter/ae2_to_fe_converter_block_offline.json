@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "generalenergy:block/ae2_to_fe_converter"
+  }
+}

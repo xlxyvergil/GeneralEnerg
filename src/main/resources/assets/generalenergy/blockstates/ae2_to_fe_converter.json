@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "energy_state=offline": {
+      "model": "generalenergy:block/ae2_to_fe_converter/ae2_to_fe_converter_block_offline"
+    },
+    "energy_state=online": {
+      "model": "generalenergy:block/ae2_to_fe_converter/ae2_to_fe_converter_block_online"
+    },
+    "energy_state=conflicted": {
+      "model": "generalenergy:block/ae2_to_fe_converter/ae2_to_fe_converter_block_conflicted"
+    }
+  }
+}

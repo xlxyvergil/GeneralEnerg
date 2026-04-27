@@ -1,0 +1,7 @@
+{
+  "parent": "generalenergy:block/ae2_to_fe_converter/ae2_to_fe_converter_block_lights",
+  "textures": {
+    "block": "generalenergy:block/ae2_to_fe_converter_powered",
+    "lights": "generalenergy:block/ae2_to_fe_converter_lights"
+  }
+}
