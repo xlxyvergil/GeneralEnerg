@@ -1,4 +1,14 @@
 {
   "block.generalenergy.ae2_to_fe_converter": "AE2 to FE Converter",
-  "itemGroup.generalenergy.general_energy_tab": "General Energy"
+  "block.generalenergy.rs_to_fe_converter": "RS to FE Converter",
+  "itemGroup.generalenergy.general_energy_tab": "General Energy",
+  
+  "tooltip.generalenergy.ae2_to_fe_converter.fe_cache": "§bFE Cache: §f80k FE",
+  "tooltip.generalenergy.ae2_to_fe_converter.ae_consumption": "§bAE Consumption: §f100 AE/t",
+  "tooltip.generalenergy.ae2_to_fe_converter.output": "§bOutput: §fUnlimited (6 sides)",
+  
+  "tooltip.generalenergy.rs_to_fe_converter.network_capacity": "§bNetwork Capacity: §f500k FE/block",
+  "tooltip.generalenergy.rs_to_fe_converter.input": "§bInput: §fReceive FE from RS Network",
+  "tooltip.generalenergy.rs_to_fe_converter.output": "§bOutput: §fUnlimited (6 sides)",
+  "tooltip.generalenergy.rs_to_fe_converter.boost": "§bCapacity Boost: §f+%s FE/block"
 }

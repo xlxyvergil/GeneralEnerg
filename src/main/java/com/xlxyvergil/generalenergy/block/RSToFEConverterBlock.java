@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public class AE2ToFEConverterBlock extends Block implements EntityBlock {
+public class RSToFEConverterBlock extends Block implements EntityBlock {
 
     public enum EnergyState implements StringRepresentable {
         OFFLINE("offline"),
@@ -39,7 +39,7 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<EnergyState> ENERGY_STATE = EnumProperty.create("energy_state", EnergyState.class);
 
-    public AE2ToFEConverterBlock(BlockBehaviour.Properties properties) {
+    public RSToFEConverterBlock(BlockBehaviour.Properties properties) {
         super(properties);
         this.registerDefaultState(this.defaultBlockState().setValue(ENERGY_STATE, EnergyState.OFFLINE));
     }
@@ -51,19 +51,20 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        if (ModRegistration.AE2_TO_FE_CONVERTER_ENTITY == null) {
+        if (ModRegistration.RS_TO_FE_CONVERTER_ENTITY == null) {
             return null;
         }
         @SuppressWarnings("unchecked")
-        var entityType = (BlockEntityType<AE2ToFEConverterBlockEntity>) 
-            ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get();
-        return new AE2ToFEConverterBlockEntity(entityType, pos, state);
+        var entityType = (BlockEntityType<RSToFEConverterBlockEntity>) 
+            ModRegistration.RS_TO_FE_CONVERTER_ENTITY.get();
+        return new RSToFEConverterBlockEntity(entityType, pos, state);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.fe_cache"));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.ae_consumption"));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.input"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.boost", RSToFENetworkNode.EXTRA_CAPACITY_PER_CONVERTER));
     }
 }

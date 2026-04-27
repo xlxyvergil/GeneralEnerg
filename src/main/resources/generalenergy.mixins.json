@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.xlxyvergil.generalenergy.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "generalenergy.refmap.json",
+  "mixins": [
+    "NetworkMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

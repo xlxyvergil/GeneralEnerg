@@ -1,9 +1,12 @@
 package com.xlxyvergil.generalenergy;
 
 import com.mojang.logging.LogUtils;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
@@ -16,11 +19,17 @@ public class GeneralEnergy {
     public GeneralEnergy() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         
+        // 注册配置文件
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, GeneralEnergyConfig.COMMON_SPEC);
+        
         // 初始化注册（完全参照 Mekanism）
         ModRegistration.init(modEventBus);
         
         // 条件注册 AE2 相关内容
         ModRegistration.initAE2Content(modEventBus);
+        
+        // 条件注册 RS 相关内容
+        ModRegistration.initRSContent(modEventBus);
 
         MinecraftForge.EVENT_BUS.register(this);
 

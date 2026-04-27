@@ -3,13 +3,19 @@ package com.xlxyvergil.generalenergy;
 import com.mojang.logging.LogUtils;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlockEntity;
+import com.xlxyvergil.generalenergy.block.RSToFEConverterBlock;
+import com.xlxyvergil.generalenergy.block.RSToFEConverterBlockEntity;
+import com.xlxyvergil.generalenergy.block.RSToFENetworkNode;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.DeferredRegister;
@@ -23,7 +29,7 @@ public class ModRegistration {
     
     // DeferredRegister
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, GeneralEnergy.MODID);
-    public static final DeferredRegister<net.minecraft.world.level.block.Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, GeneralEnergy.MODID);
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, GeneralEnergy.MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, GeneralEnergy.MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, GeneralEnergy.MODID);
     
@@ -42,9 +48,14 @@ public class ModRegistration {
     );
     
     // AE2 相关 - 条件注册
-    public static RegistryObject<net.minecraft.world.level.block.Block> AE2_TO_FE_CONVERTER;
+    public static RegistryObject<Block> AE2_TO_FE_CONVERTER;
     public static RegistryObject<Item> AE2_TO_FE_CONVERTER_ITEM;
     public static RegistryObject<BlockEntityType<?>> AE2_TO_FE_CONVERTER_ENTITY;
+    
+    // RS 相关 - 条件注册
+    public static RegistryObject<Block> RS_TO_FE_CONVERTER;
+    public static RegistryObject<Item> RS_TO_FE_CONVERTER_ITEM;
+    public static RegistryObject<BlockEntityType<?>> RS_TO_FE_CONVERTER_ENTITY;
     
     public static void init(IEventBus modEventBus) {
         // 注册所有 DeferredRegister
@@ -67,6 +78,11 @@ public class ModRegistration {
             if (AE2_TO_FE_CONVERTER_ITEM != null) {
                 event.accept(AE2_TO_FE_CONVERTER_ITEM.get());
             }
+            
+            // 如果 RS 已加载，添加 RS 相关物品
+            if (RS_TO_FE_CONVERTER_ITEM != null) {
+                event.accept(RS_TO_FE_CONVERTER_ITEM.get());
+            }
         }
     }
     
@@ -80,8 +96,8 @@ public class ModRegistration {
         LOGGER.info("AE2 detected, registering AE2 content");
         
         AE2_TO_FE_CONVERTER = BLOCKS.register("ae2_to_fe_converter", () -> new AE2ToFEConverterBlock(
-            net.minecraft.world.level.block.state.BlockBehaviour.Properties.of()
-                .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+            BlockBehaviour.Properties.of()
+                .mapColor(MapColor.METAL)
                 .strength(3.0F)
                 .lightLevel(state -> state.getValue(AE2ToFEConverterBlock.ENERGY_STATE) == AE2ToFEConverterBlock.EnergyState.ONLINE ? 15 : 0)
         ));
@@ -94,5 +110,42 @@ public class ModRegistration {
         ).build(null));
         
         LOGGER.info("AE2 content registered successfully");
+    }
+    
+    public static void initRSContent(IEventBus modEventBus) {
+        // 检查 RS 是否加载，条件注册 RS 相关方块和物品
+        if (!ModList.get().isLoaded("refinedstorage")) {
+            LOGGER.warn("RS not loaded, skipping RS content registration");
+            return;
+        }
+        
+        LOGGER.info("RS detected, registering RS content");
+        
+        // 注册 RS NetworkNode
+        try {
+            com.refinedmods.refinedstorage.apiimpl.API.instance().getNetworkNodeRegistry().add(
+                RSToFENetworkNode.ID,
+                (tag, world, pos) -> new RSToFENetworkNode(world, pos)
+            );
+            LOGGER.info("RS NetworkNode registered successfully");
+        } catch (Exception e) {
+            LOGGER.error("Failed to register RS NetworkNode", e);
+        }
+        
+        RS_TO_FE_CONVERTER = BLOCKS.register("rs_to_fe_converter", () -> new RSToFEConverterBlock(
+            BlockBehaviour.Properties.of()
+                .mapColor(MapColor.METAL)
+                .strength(3.0F)
+                .lightLevel(state -> state.getValue(RSToFEConverterBlock.ENERGY_STATE) == RSToFEConverterBlock.EnergyState.ONLINE ? 15 : 0)
+        ));
+        
+        RS_TO_FE_CONVERTER_ITEM = ITEMS.register("rs_to_fe_converter", () -> new BlockItem(RS_TO_FE_CONVERTER.get(), new Item.Properties()));
+        
+        RS_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("rs_to_fe_converter", () -> BlockEntityType.Builder.of(
+            (pos, state) -> new RSToFEConverterBlockEntity(null, pos, state),
+            RS_TO_FE_CONVERTER.get()
+        ).build(null));
+        
+        LOGGER.info("RS content registered successfully");
     }
 }

@@ -1,0 +1,142 @@
+package com.xlxyvergil.generalenergy.block;
+
+import com.refinedmods.refinedstorage.api.network.INetwork;
+import com.refinedmods.refinedstorage.apiimpl.network.node.NetworkNode;
+import com.refinedmods.refinedstorage.blockentity.ControllerBlockEntity;
+import com.refinedmods.refinedstorage.energy.BaseEnergyStorage;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+
+public class RSToFENetworkNode extends NetworkNode {
+
+    public static final ResourceLocation ID = new ResourceLocation("generalenergy", "rs_to_fe_converter");
+    
+    // 每个方块贡献的额外 RS 网络容量（FE）- 从配置读取
+    public static final int EXTRA_CAPACITY_PER_CONVERTER = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
+    
+    // RS 网络节点的能量消耗（每 tick）- 从配置读取，默认10
+    public static final int ENERGY_USAGE = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
+    
+    // 最大提取/传输速率：80k FE/t - 从配置读取
+    public static final int MAX_FE_TRANSFER = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
+
+    public RSToFENetworkNode(Level level, BlockPos pos) {
+        super(level, pos);
+    }
+
+    @Override
+    public ResourceLocation getId() {
+        return ID;
+    }
+
+    @Override
+    public int getEnergyUsage() {
+        // 计算6方向邻居的总FE需求
+        if (level == null) return 0;
+        
+        int totalDemand = 0;
+        
+        for (Direction direction : Direction.values()) {
+            var neighborPos = pos.relative(direction);
+            var neighborBE = level.getBlockEntity(neighborPos);
+            
+            if (neighborBE == null) continue;
+            
+            // 跳过 RS Controller
+            if (neighborBE instanceof ControllerBlockEntity) continue;
+            
+            // 获取邻居的 FE 能力
+            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (!cap.isPresent()) continue;
+            
+            var handler = cap.resolve().get();
+            
+            // 模拟检测：邻居最多能接收多少 FE
+            int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
+            totalDemand += canReceive;
+        }
+        
+        // 限制最大提取速率
+        return Math.min(totalDemand, MAX_FE_TRANSFER);
+    }
+
+    @Override
+    public void update() {
+        super.update();
+
+        // 每个 tick 调用，从 RS 网络提取 FE 并直接对外传输
+        if (network != null && network.getEnergyStorage() instanceof BaseEnergyStorage baseEnergy) {
+            int energyUsage = getEnergyUsage();
+            
+            if (energyUsage > 0) {
+                // 从网络提取 FE
+                int extracted = Math.min(baseEnergy.getEnergyStored(), energyUsage);
+                
+                if (extracted > 0) {
+                    baseEnergy.extractEnergyBypassCanExtract(extracted, false);
+                    
+                    // 直接对外传输（不包括 RS Controller）
+                    emitFEToNeighbors(extracted);
+                }
+            }
+        }
+    }
+    
+    /**
+     * 对外传输 FE（不包括 RS Controller）
+     */
+    private void emitFEToNeighbors(int amount) {
+        if (level == null) return;
+        
+        // 限制单次传输速率
+        int remaining = Math.min(amount, MAX_FE_TRANSFER);
+        
+        for (Direction direction : Direction.values()) {
+            if (remaining <= 0) break;
+            
+            var neighborPos = pos.relative(direction);
+            var neighborBE = level.getBlockEntity(neighborPos);
+            
+            if (neighborBE == null) continue;
+            
+            // 跳过 RS Controller
+            if (neighborBE instanceof ControllerBlockEntity) continue;
+            
+            // 获取邻居的 FE 能力
+            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (!cap.isPresent()) continue;
+            
+            var handler = cap.resolve().get();
+            
+            // 传输 FE
+            int sent = handler.receiveEnergy(remaining, false);
+            remaining -= sent;
+        }
+    }
+
+    @Override
+    public void onConnected(INetwork network) {
+        super.onConnected(network);
+    }
+
+    @Override
+    public void onDisconnected(INetwork network) {
+        super.onDisconnected(network);
+    }
+
+    @Override
+    public CompoundTag write(CompoundTag tag) {
+        super.write(tag);
+        return tag;
+    }
+
+    @Override
+    public void read(CompoundTag tag) {
+        super.read(tag);
+    }
+}

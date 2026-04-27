@@ -1,4 +1,14 @@
 {
   "block.generalenergy.ae2_to_fe_converter": "AE2转FE转换器",
-  "itemGroup.generalenergy.general_energy_tab": "通用能源"
+  "block.generalenergy.rs_to_fe_converter": "RS转FE转换器",
+  "itemGroup.generalenergy.general_energy_tab": "通用能源",
+  
+  "tooltip.generalenergy.ae2_to_fe_converter.fe_cache": "§bFE缓存: §f80k FE",
+  "tooltip.generalenergy.ae2_to_fe_converter.ae_consumption": "§bAE消耗: §f100 AE/t",
+  "tooltip.generalenergy.ae2_to_fe_converter.output": "§b输出: §f无上限 (6方向)",
+  
+  "tooltip.generalenergy.rs_to_fe_converter.network_capacity": "§b网络容量: §f500k FE/方块",
+  "tooltip.generalenergy.rs_to_fe_converter.input": "§b输入: §f从 RS 网络接收 FE",
+  "tooltip.generalenergy.rs_to_fe_converter.output": "§b输出: §f无上限 (6方向)",
+  "tooltip.generalenergy.rs_to_fe_converter.boost": "§b容量提升: §f+%s FE/方块"
 }

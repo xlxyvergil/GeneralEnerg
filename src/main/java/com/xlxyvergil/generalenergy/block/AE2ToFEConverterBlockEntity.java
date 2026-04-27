@@ -1,18 +1,25 @@
 package com.xlxyvergil.generalenergy.block;
 
+import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkPowerBlockEntity;
+import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.core.settings.TickRates;
-import com.xlxyvergil.generalenergy.GeneralEnergy;
 import com.xlxyvergil.generalenergy.ModRegistration;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
+import com.xlxyvergil.generalenergy.mixin.IControllerBaseCapacity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
@@ -25,9 +32,11 @@ import java.util.List;
 
 public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity implements IGridTickable {
 
-    private static final int MAX_AE_POWER = 50000; // AE缓存上限：50k AE = 100k FE
-    private static final double BASE_AE_CONSUMPTION = 100.0; // 基础AE消耗：100 AE/t → 200 FE/t
-    private static final int MAX_FE_OUTPUT_PER_TICK = 80000; // 最大FE输出：80k FE/t（对应40k AE/t）
+    private static final int MAX_AE_POWER = GeneralEnergyConfig.COMMON.aeToFeMaxAEPower.get(); // AE缓存上限（从配置读取）
+    private static final double BASE_AE_CONSUMPTION = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get(); // 基础AE消耗（从配置读取）
+    private static final int MAX_FE_OUTPUT_PER_CONVERTER = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get(); // 每个转换器最大FE输出（从配置读取）
+    private static final double AE_TO_FE_RATIO = PowerMultiplier.CONFIG.multiplier; // 从 AE2 配置读取转换率
+    private static final double CAPACITY_PER_CONVERTER = GeneralEnergyConfig.COMMON.aeToFeCapacityPerConverter.get(); // 每个转换器增加的AE容量（从配置读取）
     private double currentIdlePowerUsage = BASE_AE_CONSUMPTION;
 
     public AE2ToFEConverterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -52,19 +61,21 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         if (grid != null) {
             for (var node : grid.getNodes()) {
                 var owner = node.getOwner();
-                if (owner instanceof appeng.blockentity.networking.ControllerBlockEntity controller) {
+                if (owner instanceof ControllerBlockEntity controller) {
                     // 统计网络中转换器方块数量
                     int converterCount = 0;
                     for (var n : grid.getNodes()) {
                         var o = n.getOwner();
-                        if (o instanceof net.minecraft.world.level.block.entity.BlockEntity be) {
+                        if (o instanceof BlockEntity be) {
                             if (be.getType() == ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get()) {
                                 converterCount++;
                             }
                         }
                     }
+                    // 通过 Mixin 接口获取基础容量（支持其他 Mod 修改后仍能正确计算）
+                    double baseCapacity = ((IControllerBaseCapacity) controller).generalenergy$getBaseCapacity();
                     // 设置新的缓存上限
-                    double newMaxPower = 8000.0 + (converterCount * 50000.0);
+                    double newMaxPower = baseCapacity + (converterCount * CAPACITY_PER_CONVERTER);
                     controller.setInternalMaxPower(newMaxPower);
                     break; // 只处理第一个Controller
                 }
@@ -76,7 +87,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     }
 
     @Override
-    public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener.State reason) {
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         updateBlockState();
     }
 
@@ -84,7 +95,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
      * 覆盖funnelPowerIntoStorage，但我们的方块不接收AE存储，而是直接从网络提取AE转换为FE
      */
     @Override
-    protected double funnelPowerIntoStorage(double power, appeng.api.config.Actionable mode) {
+    protected double funnelPowerIntoStorage(double power, Actionable mode) {
         // 我们的方块不存储AE，直接返回未接收的量
         return power;
     }
@@ -102,14 +113,14 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         double extractAE = Math.min(aeSpace, BASE_AE_CONSUMPTION);
         
         // 直接从网络提取并注入到内部存储
-        double extracted = grid.getEnergyService().extractAEPower(extractAE, appeng.api.config.Actionable.MODULATE, appeng.api.config.PowerMultiplier.ONE);
+        double extracted = grid.getEnergyService().extractAEPower(extractAE, Actionable.MODULATE, PowerMultiplier.ONE);
         
         if (extracted > 0) {
             // 使用injectAEPower注入到内部存储
-            double notInserted = this.injectAEPower(extracted, appeng.api.config.Actionable.MODULATE);
+            double notInserted = this.injectAEPower(extracted, Actionable.MODULATE);
             // 如果没有完全注入（存储满了），提取的多余AE应该返回网络
             if (notInserted > 0) {
-                grid.getEnergyService().injectPower(notInserted, appeng.api.config.Actionable.MODULATE);
+                grid.getEnergyService().injectPower(notInserted, Actionable.MODULATE);
             }
         }
     }
@@ -160,7 +171,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         extractAEAndConvertToFE(aeSpace);  // 内部会限制为BASE_AE_CONSUMPTION
         
         // 第3步：计算总AE需求（外部FE需求 + 内部缓存填充）
-        double externalAENeeded = Math.min(totalFEDemand / 2.0, 40000.0);  // 外部需求上限40000 AE/t
+        double externalAENeeded = Math.min(totalFEDemand / AE_TO_FE_RATIO, MAX_FE_OUTPUT_PER_CONVERTER / AE_TO_FE_RATIO);  // 外部需求上限：80k FE/t
         double internalAENeeded = Math.min(aeSpace, BASE_AE_CONSUMPTION);  // 内部填充最多100 AE/t
         double totalAENeeded = externalAENeeded + internalAENeeded;
         
@@ -186,10 +197,10 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         
         // 计算可用的FE总量（基于当前AE缓存）
         double currentAE = getInternalCurrentPower();
-        int availableFE = (int) Math.floor(currentAE * 2);
+        int availableFE = (int) Math.floor(currentAE * AE_TO_FE_RATIO);
         
         // 限制本tick的最大输出
-        int maxOutputThisTick = Math.min(availableFE, MAX_FE_OUTPUT_PER_TICK);
+        int maxOutputThisTick = Math.min(availableFE, MAX_FE_OUTPUT_PER_CONVERTER);
         if (maxOutputThisTick <= 0) return 0;
         
         // 收集所有有需求的邻居
@@ -240,8 +251,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             int actuallySent = demand.handler.receiveEnergy(allocated, false);
             if (actuallySent > 0) {
                 // 从AE2内部存储扣除对应的AE
-                double aeNeeded = actuallySent / 2.0;
-                this.extractAEPower(aeNeeded, appeng.api.config.Actionable.MODULATE);
+                double aeNeeded = actuallySent / AE_TO_FE_RATIO;
+                this.extractAEPower(aeNeeded, Actionable.MODULATE);
                 totalSent += actuallySent;
                 remainingOutput -= actuallySent;
             }
@@ -311,7 +322,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             if (currentEnergyState != newState) {
                 this.level.setBlock(this.worldPosition,
                         currentState.setValue(AE2ToFEConverterBlock.ENERGY_STATE, newState),
-                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+                        Block.UPDATE_CLIENTS);
             }
         }
     }
