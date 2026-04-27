@@ -2,6 +2,7 @@ package com.xlxyvergil.generalenergy.mixin;
 
 import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.blockentity.powersink.AEBasePoweredBlockEntity;
+import com.xlxyvergil.generalenergy.api.IControllerBaseCapacity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
