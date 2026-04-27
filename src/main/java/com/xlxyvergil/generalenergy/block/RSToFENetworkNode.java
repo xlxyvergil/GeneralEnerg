@@ -36,9 +36,10 @@ public class RSToFENetworkNode extends NetworkNode {
 
     @Override
     public int getEnergyUsage() {
-        // 计算6方向邻居的总FE需求
-        if (level == null) return 0;
+        // 计算总能量消耗 = 自身基础消耗 + 对外传输的FE量
+        if (level == null) return ENERGY_USAGE;
         
+        // 计算6方向邻居的总FE需求
         int totalDemand = 0;
         
         for (Direction direction : Direction.values()) {
@@ -57,12 +58,16 @@ public class RSToFENetworkNode extends NetworkNode {
             var handler = cap.resolve().get();
             
             // 模拟检测：邻居最多能接收多少 FE
-            int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
+            // 使用 MAX_FE_TRANSFER 探测，避免极端数值
+            int canReceive = handler.receiveEnergy(MAX_FE_TRANSFER, true);
             totalDemand += canReceive;
         }
         
         // 限制最大提取速率
-        return Math.min(totalDemand, MAX_FE_TRANSFER);
+        int feTransferAmount = Math.min(totalDemand, MAX_FE_TRANSFER);
+        
+        // 总消耗 = 基础消耗 + 对外传输的FE量
+        return ENERGY_USAGE + feTransferAmount;
     }
 
     @Override
