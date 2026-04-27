@@ -1,6 +1,5 @@
 package com.xlxyvergil.generalenergy.block;
 
-import appeng.api.config.Actionable;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
@@ -20,27 +19,25 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity implements IGridTickable {
 
-    private final EnergyStorage feStorage;
-    private static final int MAX_FE_POWER = 80000; // FE缓存上限：80k FE
+    private static final int MAX_AE_POWER = 50000; // AE缓存上限：50k AE = 100k FE
     private static final double BASE_AE_CONSUMPTION = 100.0; // 基础AE消耗：100 AE/t → 200 FE/t
+    private static final int MAX_FE_OUTPUT_PER_TICK = 80000; // 最大FE输出：80k FE/t（对应40k AE/t）
     private double currentIdlePowerUsage = BASE_AE_CONSUMPTION;
-    private int tickCounter = 0; // tick计数器，控制提取频率
 
     public AE2ToFEConverterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        // FE存储的maxExtract设为Integer.MAX_VALUE，实现无上限输出
-        this.feStorage = new EnergyStorage(MAX_FE_POWER, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        this.setInternalMaxPower(MAX_AE_POWER);
         
-        // 初始idlePowerUsage为基础消耗100 AE/t
         this.getMainNode()
             .setIdlePowerUsage(BASE_AE_CONSUMPTION)
             .addService(IGridTickable.class, this);
-        // 设置为公共电源存储，允许网络注入能量（转换为FE）
-        this.setInternalPublicPowerStorage(true);
-        // 设置为WRITE，让网络可以向我们的方块注入AE能量
-        this.setInternalPowerFlow(appeng.api.config.AccessRestriction.WRITE);
+        // 不设置为公共电源存储，防止网络直接注入AE（会导致瞬间填满）
+        // 我们通过extractAEAndConvertToFE主动控制提取速度
     }
 
 
@@ -48,6 +45,31 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     @Override
     public void onReady() {
         super.onReady();
+        
+        // 动态提升Controller缓存上限：每个转换器方块增加50000 AE
+        var grid = getMainNode().getGrid();
+        if (grid != null) {
+            for (var node : grid.getNodes()) {
+                var owner = node.getOwner();
+                if (owner instanceof appeng.blockentity.networking.ControllerBlockEntity controller) {
+                    // 统计网络中转换器方块数量
+                    int converterCount = 0;
+                    for (var n : grid.getNodes()) {
+                        var o = n.getOwner();
+                        if (o instanceof net.minecraft.world.level.block.entity.BlockEntity be) {
+                            if (be.getType() == GeneralEnergy.AE2_TO_FE_CONVERTER_ENTITY.get()) {
+                                converterCount++;
+                            }
+                        }
+                    }
+                    // 设置新的缓存上限
+                    double newMaxPower = 8000.0 + (converterCount * 50000.0);
+                    controller.setInternalMaxPower(newMaxPower);
+                    break; // 只处理第一个Controller
+                }
+            }
+        }
+        
         this.getMainNode().setVisualRepresentation(GeneralEnergy.AE2_TO_FE_CONVERTER_ITEM.get());
         updateBlockState();
     }
@@ -67,29 +89,27 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     }
 
     /**
-     * 从AE2网络提取AE能量转换为FE，每20 tick提取一次
+     * 从AE2网络提取AE能量转换为FE
+     * 每次tickingRequest调用时执行
+     * @param aeSpace AE缓存剩余空间
      */
-    private void extractAEAndConvertToFE() {
-        tickCounter++;
-        if (tickCounter < 20) return; // 每20 tick（1秒）提取一次
-        tickCounter = 0;
-        
+    private void extractAEAndConvertToFE(double aeSpace) {
         var grid = getMainNode().getGrid();
         if (grid == null) return;
         
-        int currentFE = feStorage.getEnergyStored();
-        int feSpace = MAX_FE_POWER - currentFE;
-        if (feSpace <= 0) return;
+        // 填充自身AE缓存时，限制速率为BASE_AE_CONSUMPTION（100 AE/t）
+        double extractAE = Math.min(aeSpace, BASE_AE_CONSUMPTION);
         
-        // 每次最多提取100 AE（200 FE）
-        double maxExtractAE = 100.0;
-        double needAE = Math.min(feSpace / 2.0, maxExtractAE);
-        
-        double extracted = grid.getEnergyService().extractAEPower(needAE, appeng.api.config.Actionable.MODULATE, appeng.api.config.PowerMultiplier.ONE);
+        // 直接从网络提取并注入到内部存储
+        double extracted = grid.getEnergyService().extractAEPower(extractAE, appeng.api.config.Actionable.MODULATE, appeng.api.config.PowerMultiplier.ONE);
         
         if (extracted > 0) {
-            int feToAdd = (int) (extracted * 2);
-            feStorage.receiveEnergy(feToAdd, false);
+            // 使用injectAEPower注入到内部存储
+            double notInserted = this.injectAEPower(extracted, appeng.api.config.Actionable.MODULATE);
+            // 如果没有完全注入（存储满了），提取的多余AE应该返回网络
+            if (notInserted > 0) {
+                grid.getEnergyService().injectPower(notInserted, appeng.api.config.Actionable.MODULATE);
+            }
         }
     }
 
@@ -106,27 +126,52 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         var grid = getMainNode().getGrid();
         if (grid == null) return TickRateModulation.SLOWER;
         
-        // 第1步：对外输出FE（参考Mekanism的emit逻辑）
-        int totalFEExtracted = emitFEToNeighbors();
-        
-        // 第2步：检查FE缓存状态
-        int currentFE = feStorage.getEnergyStored();
-        int feSpace = MAX_FE_POWER - currentFE;
-        
-        // 第3步：根据FE缓存状态动态调整AE消耗
-        if (feSpace <= 0) {
-            currentIdlePowerUsage = 0.0;
-        } else if (totalFEExtracted > 0) {
-            currentIdlePowerUsage = Math.min(totalFEExtracted / 2.0, BASE_AE_CONSUMPTION);
-        } else {
-            currentIdlePowerUsage = BASE_AE_CONSUMPTION;
+        // 第1步：检测6个方向的总FE需求
+        int totalFEDemand = 0;
+        int[] faceDemands = new int[6];  // 记录每个面的需求
+        for (int i = 0; i < Direction.values().length; i++) {
+            Direction direction = Direction.values()[i];
+            var neighborPos = this.worldPosition.relative(direction);
+            if (this.level == null) continue;
+            var neighborBE = this.level.getBlockEntity(neighborPos);
+            if (neighborBE == null) continue;
+            
+            // 跳过AE2 Controller防止循环
+            String beClassName = neighborBE.getClass().getName();
+            if (beClassName.contains("ControllerBlockEntity") || 
+                beClassName.contains("appeng.blockentity.networking.ControllerBlockEntity")) {
+                continue;
+            }
+            
+            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (cap.isPresent()) {
+                var handler = cap.resolve().get();
+                int demand = handler.receiveEnergy(Integer.MAX_VALUE, true);
+                faceDemands[i] = demand;
+                totalFEDemand += demand;
+            }
         }
         
-        this.getMainNode().setIdlePowerUsage(currentIdlePowerUsage);
-        updateBlockState(); // 更新材质
+        // 第2步：先提取AE填充自身缓存（限制为100 AE/t）
+        double currentAE = getInternalCurrentPower();
+        double maxAE = getInternalMaxPower();
+        double aeSpace = maxAE - currentAE;
+        extractAEAndConvertToFE(aeSpace);  // 内部会限制为BASE_AE_CONSUMPTION
         
-        // 第4步：从AE2网络提取AE能量转换为FE（参考控制器的逻辑，但我们是提取而非注入）
-        extractAEAndConvertToFE();
+        // 第3步：计算总AE需求（外部FE需求 + 内部缓存填充）
+        double externalAENeeded = Math.min(totalFEDemand / 2.0, 40000.0);  // 外部需求上限40000 AE/t
+        double internalAENeeded = Math.min(aeSpace, BASE_AE_CONSUMPTION);  // 内部填充最多100 AE/t
+        double totalAENeeded = externalAENeeded + internalAENeeded;
+        
+        // 第4步：设置idlePowerUsage为总需求
+        if (currentIdlePowerUsage != totalAENeeded) {
+            currentIdlePowerUsage = totalAENeeded;
+            this.getMainNode().setIdlePowerUsage(totalAENeeded);
+            updateBlockState();
+        }
+        
+        // 第5步：对外输出FE
+        emitFEToNeighbors();
         
         return TickRateModulation.FASTER;
     }
@@ -138,11 +183,19 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     private int emitFEToNeighbors() {
         int totalSent = 0;
         
-        // 对每个方向独立输出
+        // 计算可用的FE总量（基于当前AE缓存）
+        double currentAE = getInternalCurrentPower();
+        int availableFE = (int) Math.floor(currentAE * 2);
+        
+        // 限制本tick的最大输出
+        int maxOutputThisTick = Math.min(availableFE, MAX_FE_OUTPUT_PER_TICK);
+        if (maxOutputThisTick <= 0) return 0;
+        
+        // 收集所有有需求的邻居
+        List<FEDemandInfo> demands = new ArrayList<>();
         for (Direction direction : Direction.values()) {
-            BlockPos neighborPos = this.getBlockPos().relative(direction);
+            var neighborPos = this.worldPosition.relative(direction);
             if (this.level == null) continue;
-            
             var neighborBE = this.level.getBlockEntity(neighborPos);
             if (neighborBE == null) continue;
             
@@ -163,44 +216,66 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
             if (canReceive <= 0) continue;
             
-            // 模拟检测：feStorage能提取多少
-            int canExtract = feStorage.extractEnergy(Integer.MAX_VALUE, true);
-            if (canExtract <= 0) continue;
+            demands.add(new FEDemandInfo(direction, handler, canReceive));
+        }
+        
+        if (demands.isEmpty()) return 0;
+        
+        // 按需求比例分配可用FE
+        int totalDemand = demands.stream().mapToInt(d -> d.demand).sum();
+        int remainingOutput = maxOutputThisTick;
+        
+        for (FEDemandInfo demand : demands) {
+            if (remainingOutput <= 0) break;
             
-            // 计算实际能发送的量
-            int toSend = Math.min(canReceive, canExtract);
-            if (toSend <= 0) continue;
+            // 按比例分配
+            int allocated = totalDemand > 0 ? (int) Math.floor((double) demand.demand / totalDemand * maxOutputThisTick) : 0;
+            allocated = Math.min(allocated, remainingOutput);
+            allocated = Math.min(allocated, demand.demand);
             
-            // 实际发送FE
-            int actuallySent = handler.receiveEnergy(toSend, false);
+            if (allocated <= 0) continue;
+            
+            // 实际发送FE（从AE转换）
+            int actuallySent = demand.handler.receiveEnergy(allocated, false);
             if (actuallySent > 0) {
-                feStorage.extractEnergy(actuallySent, false);
+                // 从AE2内部存储扣除对应的AE
+                double aeNeeded = actuallySent / 2.0;
+                this.extractAEPower(aeNeeded, appeng.api.config.Actionable.MODULATE);
                 totalSent += actuallySent;
+                remainingOutput -= actuallySent;
             }
         }
         
         return totalSent;
     }
+    
+    private static class FEDemandInfo {
+        Direction direction;
+        IEnergyStorage handler;
+        int demand;
+        
+        FEDemandInfo(Direction direction, IEnergyStorage handler, int demand) {
+            this.direction = direction;
+            this.handler = handler;
+            this.demand = demand;
+        }
+    }
 
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        tag.putInt("feStorage", feStorage.getEnergyStored());
+        // AE2内部存储会自动保存
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
-        if (tag.contains("feStorage")) {
-            feStorage.setEnergy(tag.getInt("feStorage"));
-        }
+        // AE2内部存储会自动加载
     }
 
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, Direction side) {
-        if (cap == ForgeCapabilities.ENERGY) {
-            return LazyOptional.of(() -> feStorage).cast();
-        }
+        // 使用AE2的ForgeEnergyAdapter，不需要自定义
         return super.getCapability(cap, side);
     }
 
@@ -219,17 +294,15 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     }
 
     private void updateBlockState() {
-        if (this.level == null || !this.getMainNode().isReady()) {
+        if (this.level == null) {
             return;
         }
 
         var grid = getMainNode().getGrid();
         var newState = AE2ToFEConverterBlock.EnergyState.OFFLINE;
         
-        if (grid != null) {
-            if (grid.getEnergyService().isNetworkPowered()) {
-                newState = AE2ToFEConverterBlock.EnergyState.ONLINE;
-            }
+        if (grid != null && grid.getEnergyService().isNetworkPowered()) {
+            newState = AE2ToFEConverterBlock.EnergyState.ONLINE;
         }
 
         // 如果状态不同，更新BlockState
@@ -241,61 +314,6 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
                         currentState.setValue(AE2ToFEConverterBlock.ENERGY_STATE, newState),
                         net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
             }
-        }
-    }
-
-    private static class EnergyStorage implements IEnergyStorage {
-        private final int capacity;
-        private final int maxReceive;
-        private final int maxExtract;
-        private int energy;
-
-        public EnergyStorage(int capacity, int maxReceive, int maxExtract) {
-            this.capacity = capacity;
-            this.maxReceive = maxReceive;
-            this.maxExtract = maxExtract;
-        }
-
-        @Override
-        public int receiveEnergy(int maxReceive, boolean simulate) {
-            int energyReceived = Math.min(capacity - energy, Math.min(this.maxReceive, maxReceive));
-            if (!simulate) {
-                energy += energyReceived;
-            }
-            return energyReceived;
-        }
-
-        @Override
-        public int extractEnergy(int maxExtract, boolean simulate) {
-            int energyExtracted = Math.min(energy, Math.min(this.maxExtract, maxExtract));
-            if (!simulate) {
-                energy -= energyExtracted;
-            }
-            return energyExtracted;
-        }
-
-        @Override
-        public int getEnergyStored() {
-            return energy;
-        }
-
-        @Override
-        public int getMaxEnergyStored() {
-            return capacity;
-        }
-
-        @Override
-        public boolean canExtract() {
-            return true;
-        }
-
-        @Override
-        public boolean canReceive() {
-            return true;
-        }
-
-        public void setEnergy(int energy) {
-            this.energy = Math.min(energy, capacity);
         }
     }
 }

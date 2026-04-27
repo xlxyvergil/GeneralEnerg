@@ -11,7 +11,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
@@ -30,14 +29,25 @@ public class GeneralEnergy {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
 
     public static final RegistryObject<Block> AE2_TO_FE_CONVERTER = BLOCKS.register("ae2_to_fe_converter",
-            () -> new AE2ToFEConverterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F)));
+            () -> new AE2ToFEConverterBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.METAL)
+                .strength(3.0F)
+                .lightLevel(state -> state.getValue(AE2ToFEConverterBlock.ENERGY_STATE) == AE2ToFEConverterBlock.EnergyState.ONLINE ? 15 : 0)));
 
-    public static final RegistryObject<BlockEntityType<AE2ToFEConverterBlockEntity>> AE2_TO_FE_CONVERTER_ENTITY = 
-            BLOCK_ENTITIES.register("ae2_to_fe_converter",
+    // BlockEntityType - 使用Object避免类加载时解析AE2类型
+    public static final Object AE2_TO_FE_CONVERTER_ENTITY;
+    
+    static {
+        if (net.minecraftforge.fml.ModList.get().isLoaded("appliedenergistics2")) {
+            AE2_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("ae2_to_fe_converter",
                     () -> BlockEntityType.Builder.of(
                             (pos, state) -> new AE2ToFEConverterBlockEntity(null, pos, state),
                             AE2_TO_FE_CONVERTER.get()
                     ).build(null));
+        } else {
+            AE2_TO_FE_CONVERTER_ENTITY = null;
+        }
+    }
 
     public static final RegistryObject<Item> AE2_TO_FE_CONVERTER_ITEM = ITEMS.register("ae2_to_fe_converter",
             () -> new BlockItem(AE2_TO_FE_CONVERTER.get(), new Item.Properties()));
@@ -48,12 +58,6 @@ public class GeneralEnergy {
         BLOCKS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         ITEMS.register(modEventBus);
-
-        if (ModList.get().isLoaded("appliedenergistics2")) {
-            LOGGER.info("AE2 detected, AE2 integration features enabled");
-        } else {
-            LOGGER.warn("AE2 not loaded, AE2 integration features disabled");
-        }
 
         MinecraftForge.EVENT_BUS.register(this);
 

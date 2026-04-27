@@ -1,7 +1,7 @@
 {
   "parent": "block/block",
   "textures": {
-    "particle": "generalenergy:block/ae2_to_fe_converter"
+    "particle": "generalenergy:block/ae2_to_fe_converter_lights"
   },
   "elements": [
     {

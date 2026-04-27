@@ -2,24 +2,27 @@ package com.xlxyvergil.generalenergy.block;
 
 import com.xlxyvergil.generalenergy.GeneralEnergy;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityTicker;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 
+import javax.annotation.Nullable;
+import java.util.List;
+
 public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     public enum EnergyState implements StringRepresentable {
         OFFLINE("offline"),
-        ONLINE("online"),
-        CONFLICTED("conflicted");
+        ONLINE("online");
 
         private final String name;
 
@@ -36,7 +39,7 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
     public static final EnumProperty<EnergyState> ENERGY_STATE = EnumProperty.create("energy_state", EnergyState.class);
 
     public AE2ToFEConverterBlock(BlockBehaviour.Properties properties) {
-        super(properties.lightLevel(state -> state.getValue(ENERGY_STATE) == EnergyState.ONLINE ? 15 : 0));
+        super(properties);
         this.registerDefaultState(this.defaultBlockState().setValue(ENERGY_STATE, EnergyState.OFFLINE));
     }
 
@@ -48,5 +51,12 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new AE2ToFEConverterBlockEntity(GeneralEnergy.AE2_TO_FE_CONVERTER_ENTITY.get(), pos, state);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.literal("§bFE缓存: §f80k FE"));
+        tooltip.add(Component.literal("§bAE消耗: §f100 AE/t"));
+        tooltip.add(Component.literal("§b输出: §f无上限 (6方向)"));
     }
 }
