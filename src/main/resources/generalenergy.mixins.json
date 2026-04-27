@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "generalenergy.refmap.json",
   "mixins": [
-    "NetworkMixin"
+    "NetworkMixin",
+    "ControllerBlockEntityMixin"
   ],
   "client": [],
   "server": [],
