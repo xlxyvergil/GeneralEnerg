@@ -34,20 +34,11 @@ public class GeneralEnergy {
                 .strength(3.0F)
                 .lightLevel(state -> state.getValue(AE2ToFEConverterBlock.ENERGY_STATE) == AE2ToFEConverterBlock.EnergyState.ONLINE ? 15 : 0)));
 
-    // BlockEntityType - 使用Object避免类加载时解析AE2类型
-    public static final Object AE2_TO_FE_CONVERTER_ENTITY;
-    
-    static {
-        if (net.minecraftforge.fml.ModList.get().isLoaded("appliedenergistics2")) {
-            AE2_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("ae2_to_fe_converter",
-                    () -> BlockEntityType.Builder.of(
-                            (pos, state) -> new AE2ToFEConverterBlockEntity(null, pos, state),
-                            AE2_TO_FE_CONVERTER.get()
-                    ).build(null));
-        } else {
-            AE2_TO_FE_CONVERTER_ENTITY = null;
-        }
-    }
+    public static final RegistryObject<BlockEntityType<AE2ToFEConverterBlockEntity>> AE2_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("ae2_to_fe_converter",
+            () -> BlockEntityType.Builder.of(
+                    (pos, state) -> new AE2ToFEConverterBlockEntity(null, pos, state),
+                    AE2_TO_FE_CONVERTER.get()
+            ).build(null));
 
     public static final RegistryObject<Item> AE2_TO_FE_CONVERTER_ITEM = ITEMS.register("ae2_to_fe_converter",
             () -> new BlockItem(AE2_TO_FE_CONVERTER.get(), new Item.Properties()));

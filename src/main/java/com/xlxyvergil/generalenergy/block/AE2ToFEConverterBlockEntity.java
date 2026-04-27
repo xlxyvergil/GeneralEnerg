@@ -216,7 +216,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
             if (canReceive <= 0) continue;
             
-            demands.add(new FEDemandInfo(direction, handler, canReceive));
+            demands.add(new FEDemandInfo(handler, canReceive));
         }
         
         if (demands.isEmpty()) return 0;
@@ -250,12 +250,10 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     }
     
     private static class FEDemandInfo {
-        Direction direction;
         IEnergyStorage handler;
         int demand;
         
-        FEDemandInfo(Direction direction, IEnergyStorage handler, int demand) {
-            this.direction = direction;
+        FEDemandInfo(IEnergyStorage handler, int demand) {
             this.handler = handler;
             this.demand = demand;
         }
