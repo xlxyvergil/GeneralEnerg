@@ -9,6 +9,7 @@ import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkPowerBlockEntity;
 import appeng.core.settings.TickRates;
 import com.xlxyvergil.generalenergy.GeneralEnergy;
+import com.xlxyvergil.generalenergy.ModRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -57,7 +58,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
                     for (var n : grid.getNodes()) {
                         var o = n.getOwner();
                         if (o instanceof net.minecraft.world.level.block.entity.BlockEntity be) {
-                            if (be.getType() == GeneralEnergy.AE2_TO_FE_CONVERTER_ENTITY.get()) {
+                            if (be.getType() == ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get()) {
                                 converterCount++;
                             }
                         }
@@ -70,7 +71,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             }
         }
         
-        this.getMainNode().setVisualRepresentation(GeneralEnergy.AE2_TO_FE_CONVERTER_ITEM.get());
+        this.getMainNode().setVisualRepresentation(ModRegistration.AE2_TO_FE_CONVERTER_ITEM.get());
         updateBlockState();
     }
 
