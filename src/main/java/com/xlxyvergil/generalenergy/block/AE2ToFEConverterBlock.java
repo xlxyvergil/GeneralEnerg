@@ -1,6 +1,5 @@
 package com.xlxyvergil.generalenergy.block;
 
-import com.xlxyvergil.generalenergy.ModRegistration;
 import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -11,7 +10,6 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -52,13 +50,7 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        if (ModRegistration.AE2_TO_FE_CONVERTER_ENTITY == null) {
-            return null;
-        }
-        @SuppressWarnings("unchecked")
-        var entityType = (BlockEntityType<AE2ToFEConverterBlockEntity>) 
-            ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get();
-        return new AE2ToFEConverterBlockEntity(entityType, pos, state);
+        return new AE2ToFEConverterBlockEntity(pos, state);
     }
 
     @Override
