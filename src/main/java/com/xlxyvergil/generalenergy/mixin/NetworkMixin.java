@@ -57,6 +57,9 @@ public abstract class NetworkMixin {
                 updateCapacity(network);
             }
         });
+        
+        // 立即进行一次初始化容量计算，确保现有转换器被统计
+        updateCapacity(network);
     }
     
     /**
