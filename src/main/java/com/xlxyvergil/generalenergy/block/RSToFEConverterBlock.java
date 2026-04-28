@@ -55,6 +55,9 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
+        // 功能说明
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.description"));
+        
         int capacityPerConverter = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
         
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));

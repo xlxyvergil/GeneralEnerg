@@ -55,6 +55,9 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
+        // 功能说明
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.description"));
+        
         int maxFEOutput = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get();
         double baseConsumption = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get();
         
