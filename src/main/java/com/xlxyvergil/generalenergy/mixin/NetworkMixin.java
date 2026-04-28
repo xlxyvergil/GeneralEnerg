@@ -6,6 +6,7 @@ import com.refinedmods.refinedstorage.apiimpl.network.Network;
 import com.refinedmods.refinedstorage.energy.BaseEnergyStorage;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlockEntity;
 import com.xlxyvergil.generalenergy.block.RSToFENetworkNode;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import com.xlxyvergil.generalenergy.energy.CustomBaseEnergyStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

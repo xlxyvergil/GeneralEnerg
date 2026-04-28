@@ -23,7 +23,6 @@ public class GeneralEnergyConfig {
         public final ForgeConfigSpec.DoubleValue aeToFeCapacityPerConverter;
         
         // RS 转 FE 转换器配置
-        public final ForgeConfigSpec.IntValue rsToFeInitialCapacity;
         public final ForgeConfigSpec.IntValue rsToFeCapacityPerConverter;
         public final ForgeConfigSpec.IntValue rsToFeEnergyUsage;
         public final ForgeConfigSpec.IntValue rsToFeMaxFETransfer;
@@ -54,11 +53,6 @@ public class GeneralEnergyConfig {
             builder.pop();
             
             builder.push("rs_to_fe_converter");
-            
-            rsToFeInitialCapacity = builder
-                .comment("RS网络初始FE容量", "Initial FE capacity of RS network")
-                .translation("config.generalenergy.rsToFeInitialCapacity")
-                .defineInRange("initialCapacity", 1000000, 1000, Integer.MAX_VALUE);
             
             rsToFeCapacityPerConverter = builder
                 .comment("每个RS转换器增加的FE容量", "Additional FE capacity per RS converter")

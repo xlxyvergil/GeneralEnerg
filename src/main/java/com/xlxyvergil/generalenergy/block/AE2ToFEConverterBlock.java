@@ -60,6 +60,6 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
         
         tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.fe_cache", maxFEOutput));
         tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.ae_consumption", String.format("%.0f", baseConsumption)));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output", maxFEOutput));
     }
 }
