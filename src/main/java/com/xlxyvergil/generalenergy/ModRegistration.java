@@ -105,7 +105,7 @@ public class ModRegistration {
         AE2_TO_FE_CONVERTER_ITEM = ITEMS.register("ae2_to_fe_converter", () -> new BlockItem(AE2_TO_FE_CONVERTER.get(), new Item.Properties()));
         
         AE2_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("ae2_to_fe_converter", () -> BlockEntityType.Builder.of(
-            (pos, state) -> new AE2ToFEConverterBlockEntity(null, pos, state),
+            AE2ToFEConverterBlockEntity::new,
             AE2_TO_FE_CONVERTER.get()
         ).build(null));
         
@@ -142,7 +142,7 @@ public class ModRegistration {
         RS_TO_FE_CONVERTER_ITEM = ITEMS.register("rs_to_fe_converter", () -> new BlockItem(RS_TO_FE_CONVERTER.get(), new Item.Properties()));
         
         RS_TO_FE_CONVERTER_ENTITY = BLOCK_ENTITIES.register("rs_to_fe_converter", () -> BlockEntityType.Builder.of(
-            (pos, state) -> new RSToFEConverterBlockEntity(null, pos, state),
+            RSToFEConverterBlockEntity::new,
             RS_TO_FE_CONVERTER.get()
         ).build(null));
         

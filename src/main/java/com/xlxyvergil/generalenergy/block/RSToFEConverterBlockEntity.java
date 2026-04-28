@@ -2,6 +2,7 @@ package com.xlxyvergil.generalenergy.block;
 
 import com.refinedmods.refinedstorage.blockentity.NetworkNodeBlockEntity;
 import com.refinedmods.refinedstorage.blockentity.data.BlockEntitySynchronizationSpec;
+import com.xlxyvergil.generalenergy.ModRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -20,6 +21,14 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
 
     private final LazyOptional<IEnergyStorage> energyCapability = LazyOptional.of(() -> this);
 
+    public RSToFEConverterBlockEntity(BlockPos pos, BlockState state) {
+        super(ModRegistration.RS_TO_FE_CONVERTER_ENTITY.get(), pos, state, BlockEntitySynchronizationSpec.builder().build(), RSToFENetworkNode.class);
+    }
+
+    /**
+     * @deprecated 仅供内部使用，请使用 {@link #RSToFEConverterBlockEntity(BlockPos, BlockState)}
+     */
+    @Deprecated
     public RSToFEConverterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state, BlockEntitySynchronizationSpec.builder().build(), RSToFENetworkNode.class);
     }
@@ -65,7 +74,7 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
 
     @Override
     public boolean canExtract() {
-        return true;
+        return false;
     }
 
     @Override

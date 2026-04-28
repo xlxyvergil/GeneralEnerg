@@ -1,6 +1,7 @@
 package com.xlxyvergil.generalenergy.block;
 
 import com.xlxyvergil.generalenergy.ModRegistration;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
@@ -62,7 +63,9 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity"));
+        int capacityPerConverter = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
+        
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.input"));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output"));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.boost", RSToFENetworkNode.EXTRA_CAPACITY_PER_CONVERTER));

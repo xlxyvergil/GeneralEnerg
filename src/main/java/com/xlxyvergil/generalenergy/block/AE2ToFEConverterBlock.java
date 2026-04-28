@@ -1,6 +1,7 @@
 package com.xlxyvergil.generalenergy.block;
 
 import com.xlxyvergil.generalenergy.ModRegistration;
+import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
@@ -62,8 +63,11 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.fe_cache"));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.ae_consumption"));
+        int maxFEOutput = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get();
+        double baseConsumption = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get();
+        
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.fe_cache", maxFEOutput));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.ae_consumption", String.format("%.0f", baseConsumption)));
         tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output"));
     }
 }

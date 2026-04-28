@@ -68,7 +68,10 @@ public abstract class NetworkMixin {
             // 计算当前网络中转换器方块的数量
             int converterCount = 0;
             for (var entry : network.getNodeGraph().all()) {
-                var be = entry.getNode().getLevel().getBlockEntity(entry.getNode().getPos());
+                var level = entry.getNode().getLevel();
+                if (level == null) continue;
+                
+                var be = level.getBlockEntity(entry.getNode().getPos());
                 if (be instanceof RSToFEConverterBlockEntity) {
                     converterCount++;
                 }

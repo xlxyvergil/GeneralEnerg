@@ -4,6 +4,7 @@
   "package": "com.xlxyvergil.generalenergy.mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "generalenergy.refmap.json",
+  "plugin": "com.xlxyvergil.generalenergy.mixin.GeneralEnergyMixinPlugin",
   "mixins": [
     "NetworkMixin",
     "ControllerBlockEntityMixin"

@@ -1,6 +1,7 @@
 package com.xlxyvergil.generalenergy.block;
 
 import com.refinedmods.refinedstorage.api.network.INetwork;
+import com.refinedmods.refinedstorage.apiimpl.network.node.ConnectivityStateChangeCause;
 import com.refinedmods.refinedstorage.apiimpl.network.node.NetworkNode;
 import com.refinedmods.refinedstorage.blockentity.ControllerBlockEntity;
 import com.refinedmods.refinedstorage.energy.BaseEnergyStorage;
@@ -10,6 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 public class RSToFENetworkNode extends NetworkNode {
@@ -27,6 +29,30 @@ public class RSToFENetworkNode extends NetworkNode {
 
     public RSToFENetworkNode(Level level, BlockPos pos) {
         super(level, pos);
+    }
+
+    @Override
+    protected void onConnectedStateChange(INetwork network, boolean state, ConnectivityStateChangeCause cause) {
+        super.onConnectedStateChange(network, state, cause);
+        updateBlockState();
+    }
+
+    private void updateBlockState() {
+        if (level == null) return;
+        
+        var currentState = level.getBlockState(pos);
+        if (!(currentState.getBlock() instanceof RSToFEConverterBlock)) return;
+        
+        var newState = (network != null) 
+            ? RSToFEConverterBlock.EnergyState.ONLINE 
+            : RSToFEConverterBlock.EnergyState.OFFLINE;
+        
+        var currentEnergyState = currentState.getValue(RSToFEConverterBlock.ENERGY_STATE);
+        if (currentEnergyState != newState) {
+            level.setBlock(pos,
+                currentState.setValue(RSToFEConverterBlock.ENERGY_STATE, newState),
+                Block.UPDATE_CLIENTS);
+        }
     }
 
     @Override
@@ -55,7 +81,8 @@ public class RSToFENetworkNode extends NetworkNode {
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
             if (!cap.isPresent()) continue;
             
-            var handler = cap.resolve().get();
+            var handler = cap.orElse(null);
+            if (handler == null) continue;
             
             // 模拟检测：邻居最多能接收多少 FE
             // 使用 MAX_FE_TRANSFER 探测，避免极端数值
@@ -116,7 +143,8 @@ public class RSToFENetworkNode extends NetworkNode {
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
             if (!cap.isPresent()) continue;
             
-            var handler = cap.resolve().get();
+            var handler = cap.orElse(null);
+            if (handler == null) continue;
             
             // 传输 FE
             int sent = handler.receiveEnergy(remaining, false);

@@ -15,13 +15,21 @@ public class CustomBaseEnergyStorage extends BaseEnergyStorage {
      * 动态设置容量上限
      */
     public void setCapacity(int newCapacity) {
+        if (newCapacity < 0) {
+            throw new IllegalArgumentException("Capacity cannot be negative: " + newCapacity);
+        }
         this.capacity = newCapacity;
+        // 如果当前能量超过新容量，裁剪到新容量
+        if (this.energy > this.capacity) {
+            this.energy = this.capacity;
+        }
     }
 
     /**
      * 直接设置能量值（用于容量减少时裁剪）
      */
     public void setEnergy(int newEnergy) {
-        this.energy = newEnergy;
+        // 验证并裁剪到 0..capacity 范围
+        this.energy = Math.max(0, Math.min(newEnergy, this.capacity));
     }
 }

@@ -39,8 +39,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     private static final double CAPACITY_PER_CONVERTER = GeneralEnergyConfig.COMMON.aeToFeCapacityPerConverter.get(); // 每个转换器增加的AE容量（从配置读取）
     private double currentIdlePowerUsage = BASE_AE_CONSUMPTION;
 
-    public AE2ToFEConverterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
+    public AE2ToFEConverterBlockEntity(BlockPos pos, BlockState state) {
+        super(ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get(), pos, state);
         this.setInternalMaxPower(MAX_AE_POWER);
         
         this.getMainNode()
@@ -48,6 +48,19 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             .addService(IGridTickable.class, this);
         // 不设置为公共电源存储，防止网络直接注入AE（会导致瞬间填满）
         // 我们通过extractAEAndConvertToFE主动控制提取速度
+    }
+
+    /**
+     * @deprecated 仅供内部使用，请使用 {@link #AE2ToFEConverterBlockEntity(BlockPos, BlockState)}
+     */
+    @Deprecated
+    public AE2ToFEConverterBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
+        this.setInternalMaxPower(MAX_AE_POWER);
+        
+        this.getMainNode()
+            .setIdlePowerUsage(BASE_AE_CONSUMPTION)
+            .addService(IGridTickable.class, this);
     }
 
 
@@ -157,7 +170,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
             if (cap.isPresent()) {
-                var handler = cap.resolve().get();
+                var handler = cap.orElse(null);
+                if (handler == null) continue;
                 int demand = handler.receiveEnergy(Integer.MAX_VALUE, true);
                 faceDemands[i] = demand;
                 totalFEDemand += demand;
@@ -222,7 +236,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             var optionalHandler = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
             if (!optionalHandler.isPresent()) continue;
             
-            var handler = optionalHandler.resolve().get();
+            var handler = optionalHandler.orElse(null);
+            if (handler == null) continue;
             
             // 模拟检测：邻居这个tick最多能接收多少FE
             int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
