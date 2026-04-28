@@ -21,14 +21,20 @@ public class GeneralEnergyMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        // Forge 尚未初始化时，ModList.get() 可能为 null，此时默认应用所有 mixin
+        var modList = ModList.get();
+        if (modList == null) {
+            return true;
+        }
+        
         // NetworkMixin 依赖 Refined Storage
         if ("com.xlxyvergil.generalenergy.mixin.NetworkMixin".equals(mixinClassName)) {
-            return ModList.get().isLoaded("refinedstorage");
+            return modList.isLoaded("refinedstorage");
         }
         
         // ControllerBlockEntityMixin 依赖 AE2
         if ("com.xlxyvergil.generalenergy.mixin.ControllerBlockEntityMixin".equals(mixinClassName)) {
-            return ModList.get().isLoaded("ae2");
+            return modList.isLoaded("ae2");
         }
         
         // 其他 mixin 默认应用
