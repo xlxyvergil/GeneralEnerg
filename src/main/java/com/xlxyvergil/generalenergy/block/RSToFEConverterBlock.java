@@ -7,7 +7,6 @@ import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -68,28 +67,5 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output_limit", maxFETransfer));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.internal_capacity", internalCapacity));
-    }
-    
-    @Override
-    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.player.Player player) {
-        // 手动保存 BlockEntity 的 NBT 数据到掉落物品（参考AE2ToFEConverterBlock）
-        if (!level.isClientSide && !player.isCreative()) {
-            var blockEntity = level.getBlockEntity(pos);
-            if (blockEntity != null) {
-                var drop = new ItemStack(this);
-                var nbt = blockEntity.saveWithFullMetadata();
-                drop.setTag(nbt);
-                popResource(level, pos, drop);
-            }
-        }
-        super.playerWillDestroy(level, pos, state, player);
-    }
-    
-    @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
-        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
-        
-        // 移除断开连接时变回基础方块的逻辑
-        // 转换器应该保持自身状态，即使网络断开
     }
 }

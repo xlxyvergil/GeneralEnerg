@@ -14,7 +14,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
 
@@ -171,7 +170,8 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
             
             if (neighborBE == null) continue;
             
-            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            // 不指定方向，让邻居自己决定从哪个面接收
+            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, null);
             if (!cap.isPresent()) continue;
             
             var handler = cap.orElse(null);
