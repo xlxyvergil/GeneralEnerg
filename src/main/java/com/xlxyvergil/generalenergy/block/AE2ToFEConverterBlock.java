@@ -70,9 +70,9 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
     
     @Override
     public void playerWillDestroy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.player.Player player) {
-        // 掉落基础方块
+        // 掉落当前方块（保留 NBT 数据）
         if (!level.isClientSide && !player.isCreative()) {
-            popResource(level, pos, new ItemStack(ModRegistration.ENERGY_INTERFACE_ITEM.get()));
+            popResource(level, pos, new ItemStack(this));
         }
         super.playerWillDestroy(level, pos, state, player);
     }
@@ -81,32 +81,7 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
     public void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         
-        if (level.isClientSide()) return;
-        
-        // 检测是否仍然连接着 AE2 网络
-        boolean hasAE2Network = detectAE2Network(level, pos);
-        
-        // 如果断开连接，变回基础方块
-        if (!hasAE2Network) {
-            level.setBlock(pos, ModRegistration.ENERGY_INTERFACE.get().defaultBlockState(), 3);
-        }
-    }
-    
-    /**
-     * 检测是否连接着 AE2 网络
-     */
-    private boolean detectAE2Network(Level level, BlockPos pos) {
-        for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.values()) {
-            BlockPos neighborPos = pos.relative(dir);
-            net.minecraft.world.level.block.entity.BlockEntity neighborBE = level.getBlockEntity(neighborPos);
-            
-            if (neighborBE instanceof appeng.me.helpers.IGridConnectedBlockEntity) {
-                var node = ((appeng.me.helpers.IGridConnectedBlockEntity) neighborBE).getMainNode();
-                if (node != null && node.isReady()) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        // 移除断开连接时变回基础方块的逻辑
+        // 转换器应该保持自身状态，即使网络断开
     }
 }

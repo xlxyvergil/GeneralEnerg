@@ -1,16 +1,14 @@
 package com.xlxyvergil.generalenergy.block;
 
-import appeng.me.helpers.IGridConnectedBlockEntity;
-import com.refinedmods.refinedstorage.api.network.node.INetworkNodeProxy;
 import com.xlxyvergil.generalenergy.ModRegistration;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.ModList;
 
 import javax.annotation.Nullable;
 
@@ -18,10 +16,15 @@ import javax.annotation.Nullable;
  * 能量接口 - 基础方块
  * 放置时根据相邻方块自动转换为 AE2 或 RS 转换器
  */
-public class EnergyInterfaceBlock extends Block {
+public class EnergyInterfaceBlock extends Block implements EntityBlock {
     
-    public EnergyInterfaceBlock(Properties properties) {
+    public EnergyInterfaceBlock(BlockBehaviour.Properties properties) {
         super(properties);
+    }
+    
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new EnergyInterfaceBlockEntity(pos, state);
     }
     
     @Override
@@ -30,20 +33,10 @@ public class EnergyInterfaceBlock extends Block {
         
         if (level.isClientSide()) return;
         
-        // 检测相邻方块的网络类型
-        NetworkType detectedType = detectNetworkType(level, pos);
-        
-        // 根据检测结果替换为对应方块
-        switch (detectedType) {
-            case AE2:
-                replaceWithAE2Converter(level, pos, state);
-                break;
-            case RS:
-                replaceWithRSConverter(level, pos, state);
-                break;
-            case NONE:
-                // 保持为基础方块，不做任何操作
-                break;
+        // 通知 BlockEntity 进行网络检测
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof EnergyInterfaceBlockEntity energyBE) {
+            energyBE.checkAndConvert();
         }
     }
     
@@ -62,97 +55,24 @@ public class EnergyInterfaceBlock extends Block {
         
         if (level.isClientSide()) return;
         
-        // 检测相邻方块的网络类型
-        NetworkType detectedType = detectNetworkType(level, pos);
-        
-        // 根据检测结果替换为对应方块
-        switch (detectedType) {
-            case AE2:
-                // 如果当前不是 AE2 转换器，才替换
-                if (!(state.getBlock() instanceof AE2ToFEConverterBlock)) {
-                    replaceWithAE2Converter(level, pos, state);
-                }
-                break;
-            case RS:
-                // 如果当前不是 RS 转换器，才替换
-                if (!(state.getBlock() instanceof RSToFEConverterBlock)) {
-                    replaceWithRSConverter(level, pos, state);
-                }
-                break;
-            case NONE:
-                // 如果当前是转换器，变回基础方块
-                if (state.getBlock() instanceof AE2ToFEConverterBlock || state.getBlock() instanceof RSToFEConverterBlock) {
-                    level.setBlock(pos, ModRegistration.ENERGY_INTERFACE.get().defaultBlockState(), 3);
-                }
-                break;
+        // 通知 BlockEntity 进行网络检测
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof EnergyInterfaceBlockEntity energyBE) {
+            energyBE.checkAndConvert();
         }
     }
     
-    /**
-     * 检测相邻方块的网络类型
-     * 检测顺序：西、东、北、南、下、上
-     * 通过检查是否实现网络接口来判断（支持主模组和附属模组）
-     */
-    private NetworkType detectNetworkType(Level level, BlockPos pos) {
-        // 按照指定顺序检测：WEST, EAST, NORTH, SOUTH, DOWN, UP
-        Direction[] checkOrder = {
-            Direction.WEST,
-            Direction.EAST,
-            Direction.NORTH,
-            Direction.SOUTH,
-            Direction.DOWN,
-            Direction.UP
-        };
+    @Override
+    public void onNeighborChange(BlockState state, net.minecraft.world.level.LevelReader level, BlockPos pos, BlockPos neighbor) {
+        super.onNeighborChange(state, level, pos, neighbor);
         
-        for (Direction dir : checkOrder) {
-            BlockPos neighborPos = pos.relative(dir);
-            BlockEntity neighborBE = level.getBlockEntity(neighborPos);
-            
-            if (neighborBE == null) continue;
-            
-            // 检测 AE2 网络节点 - 检查是否实现 IGridConnectedBlockEntity 接口
-            if (ModList.get().isLoaded("ae2") && neighborBE instanceof IGridConnectedBlockEntity) {
-                var node = ((IGridConnectedBlockEntity) neighborBE).getMainNode();
-                if (node != null && node.isReady()) {
-                    return NetworkType.AE2;
-                }
-            }
-            
-            // 检测 RS 网络节点 - 检查是否实现 INetworkNodeProxy 接口
-            if (ModList.get().isLoaded("refinedstorage") && neighborBE instanceof INetworkNodeProxy<?>) {
-                var proxy = (INetworkNodeProxy<?>) neighborBE;
-                var networkNode = proxy.getNode();
-                if (networkNode != null && networkNode.getNetwork() != null) {
-                    return NetworkType.RS;
-                }
+        if (level instanceof Level serverLevel && !serverLevel.isClientSide()) {
+            // 通知 BlockEntity 进行网络检测
+            BlockEntity be = serverLevel.getBlockEntity(pos);
+            if (be instanceof EnergyInterfaceBlockEntity energyBE) {
+                energyBE.checkAndConvert();
             }
         }
-        
-        return NetworkType.NONE;
     }
     
-    /**
-     * 替换为 AE2 转换器
-     */
-    private void replaceWithAE2Converter(Level level, BlockPos pos, BlockState oldState) {
-        BlockState newState = ModRegistration.AE2_TO_FE_CONVERTER.get().defaultBlockState();
-        level.setBlock(pos, newState, 3);
-    }
-    
-    /**
-     * 替换为 RS 转换器
-     */
-    private void replaceWithRSConverter(Level level, BlockPos pos, BlockState oldState) {
-        BlockState newState = ModRegistration.RS_TO_FE_CONVERTER.get().defaultBlockState();
-        level.setBlock(pos, newState, 3);
-    }
-    
-    /**
-     * 网络类型枚举
-     */
-    private enum NetworkType {
-        NONE,
-        AE2,
-        RS
-    }
 }

@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlockEntity;
 import com.xlxyvergil.generalenergy.block.EnergyInterfaceBlock;
+import com.xlxyvergil.generalenergy.block.EnergyInterfaceBlockEntity;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlockEntity;
 import com.xlxyvergil.generalenergy.block.RSToFENetworkNode;
@@ -45,6 +46,11 @@ public class ModRegistration {
     ));
     
     public static final RegistryObject<Item> ENERGY_INTERFACE_ITEM = ITEMS.register("energy_interface", () -> new BlockItem(ENERGY_INTERFACE.get(), new Item.Properties()));
+    
+    public static final RegistryObject<BlockEntityType<EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BE = BLOCK_ENTITIES.register("energy_interface", () -> BlockEntityType.Builder.of(
+        EnergyInterfaceBlockEntity::new,
+        ENERGY_INTERFACE.get()
+    ).build(null));
     
     // 创造模式标签页
     public static final RegistryObject<CreativeModeTab> GENERAL_ENERGY_TAB = CREATIVE_MODE_TABS.register("general_energy_tab", () -> 
