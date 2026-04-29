@@ -1,16 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    " R ",
-    "RFR",
-    " R "
+    "RRR",
+    "RCR",
+    "RRR"
   ],
   "key": {
     "R": {
-      "item": "minecraft:redstone"
+      "item": "minecraft:redstone_block"
     },
-    "F": {
-      "item": "minecraft:furnace"
+    "C": {
+      "tag": "refinedstorage:controller"
     }
   },
   "result": {
