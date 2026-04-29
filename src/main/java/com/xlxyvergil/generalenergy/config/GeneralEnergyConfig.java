@@ -24,9 +24,9 @@ public class GeneralEnergyConfig {
         
         // RS 转 FE 转换器配置
         public final ForgeConfigSpec.IntValue rsToFeInternalCapacity;
-        public final ForgeConfigSpec.IntValue rsToFeCapacityPerConverter;
         public final ForgeConfigSpec.IntValue rsToFeEnergyUsage;
         public final ForgeConfigSpec.IntValue rsToFeMaxFETransfer;
+        public final ForgeConfigSpec.IntValue rsToFeCapacityPerConverter;
         
         public CommonConfig(ForgeConfigSpec.Builder builder) {
             builder.push("ae2_to_fe_converter");
@@ -60,20 +60,20 @@ public class GeneralEnergyConfig {
                 .translation("config.generalenergy.rsToFeInternalCapacity")
                 .defineInRange("internalCapacity", 100000, 1000, Integer.MAX_VALUE);
             
-            rsToFeCapacityPerConverter = builder
-                .comment("每个RS转换器增加的FE容量", "Additional FE capacity per RS converter")
-                .translation("config.generalenergy.rsToFeCapacityPerConverter")
-                .defineInRange("capacityPerConverter", 500000, 1000, Integer.MAX_VALUE);
-            
             rsToFeEnergyUsage = builder
-                .comment("RS转换器每tick消耗的RS能量", "RS energy consumed per tick by RS converter")
+                .comment("RS转换器无外部需求时的填充速率/基础消耗（单位：FE/t）", "Fill rate when idle / base consumption (unit: FE/t)")
                 .translation("config.generalenergy.rsToFeEnergyUsage")
-                .defineInRange("energyUsage", 10, 0, Integer.MAX_VALUE);
+                .defineInRange("energyUsage", 200, 0, Integer.MAX_VALUE);
             
             rsToFeMaxFETransfer = builder
                 .comment("RS转换器最大FE传输速率（单位：FE/t）", "Maximum FE transfer rate of RS converter (unit: FE/t)")
                 .translation("config.generalenergy.rsToFeMaxFETransfer")
                 .defineInRange("maxFETransfer", 80000, 1000, Integer.MAX_VALUE);
+            
+            rsToFeCapacityPerConverter = builder
+                .comment("每个RS转换器增加的FE容量", "Additional FE capacity per RS converter")
+                .translation("config.generalenergy.rsToFeCapacityPerConverter")
+                .defineInRange("capacityPerConverter", 500000, 1000, Integer.MAX_VALUE);
             
             builder.pop();
         }

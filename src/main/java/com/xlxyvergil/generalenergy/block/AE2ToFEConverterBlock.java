@@ -59,12 +59,15 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
         // 功能说明
         tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.description"));
         
-        int maxFEOutput = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get();
         double baseConsumption = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get();
+        int maxFEOutput = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get();
+        double capacityPerConverter = GeneralEnergyConfig.COMMON.aeToFeCapacityPerConverter.get();
+        int maxAEPower = GeneralEnergyConfig.COMMON.aeToFeMaxAEPower.get();
         
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.fe_cache", maxFEOutput));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.ae_consumption", String.format("%.0f", baseConsumption)));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output", maxFEOutput));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.consumption", String.format("%.0f", baseConsumption)));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output_limit", maxFEOutput));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.network_capacity", String.format("%.0f", capacityPerConverter)));
+        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.internal_capacity", maxAEPower));
     }
     
     @Override

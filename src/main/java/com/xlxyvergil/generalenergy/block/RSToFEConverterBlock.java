@@ -59,17 +59,29 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
         // 功能说明
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.description"));
         
+        int energyUsage = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
+        int maxFETransfer = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
         int capacityPerConverter = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
+        int internalCapacity = GeneralEnergyConfig.COMMON.rsToFeInternalCapacity.get();
         
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.consumption", energyUsage));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output_limit", maxFETransfer));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.input"));
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output"));
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.boost", RSToFENetworkNode.EXTRA_CAPACITY_PER_CONVERTER));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.internal_capacity", internalCapacity));
     }
     
     @Override
     public void playerWillDestroy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.player.Player player) {
-        // RS 转换方块没有内部存储，直接掉落即可
+        // 手动保存 BlockEntity 的 NBT 数据到掉落物品（参考AE2ToFEConverterBlock）
+        if (!level.isClientSide && !player.isCreative()) {
+            var blockEntity = level.getBlockEntity(pos);
+            if (blockEntity != null) {
+                var drop = new ItemStack(this);
+                var nbt = blockEntity.saveWithFullMetadata();
+                drop.setTag(nbt);
+                popResource(level, pos, drop);
+            }
+        }
         super.playerWillDestroy(level, pos, state, player);
     }
     

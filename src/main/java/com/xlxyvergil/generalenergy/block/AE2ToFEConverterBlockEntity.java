@@ -178,15 +178,26 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             }
         }
         
-        // 第2步：先提取AE填充自身缓存（限制为100 AE/t）
+        // 第2步：先提取AE填充自身缓存（限制为BASE_AE_CONSUMPTION）
         double currentAE = getInternalCurrentPower();
         double maxAE = getInternalMaxPower();
         double aeSpace = maxAE - currentAE;
         extractAEAndConvertToFE(aeSpace);  // 内部会限制为BASE_AE_CONSUMPTION
         
-        // 第3步：计算总AE需求（外部FE需求 + 内部缓存填充）
-        double externalAENeeded = Math.min(totalFEDemand / AE_TO_FE_RATIO, MAX_FE_OUTPUT_PER_CONVERTER / AE_TO_FE_RATIO);  // 外部需求上限：80k FE/t
-        double internalAENeeded = Math.min(aeSpace, BASE_AE_CONSUMPTION);  // 内部填充最多100 AE/t
+        // 第3步：计算总AE需求
+        double externalAENeeded = 0;
+        if (totalFEDemand > 0) {
+            // 有外部需求：基础消耗 + 外部需求（上限 MAX_FE_OUTPUT_PER_CONVERTER）
+            externalAENeeded = Math.min(totalFEDemand / AE_TO_FE_RATIO, MAX_FE_OUTPUT_PER_CONVERTER / AE_TO_FE_RATIO);
+        }
+        
+        double internalAENeeded = 0;
+        if (externalAENeeded == 0 && aeSpace > 0) {
+            // 无外部需求且内部缓存未满：仅填充内部缓存
+            internalAENeeded = Math.min(aeSpace, BASE_AE_CONSUMPTION);
+        }
+        // 否则（内部缓存满或已有外部需求）：不额外填充
+        
         double totalAENeeded = externalAENeeded + internalAENeeded;
         
         // 第4步：设置idlePowerUsage为总需求
@@ -287,15 +298,28 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     }
 
     @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        tag.putDouble("internalCurrentPower", this.getInternalCurrentPower());
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        this.setInternalCurrentPower(tag.getDouble("internalCurrentPower"));
+    }
+
+    @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        // AE2内部存储会自动保存
+        // AE2父类AEBasePoweredBlockEntity已保存internalCurrentPower到NBT
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
-        // AE2内部存储会自动加载
+        // AE2父类AEBasePoweredBlockEntity已加载internalCurrentPower从NBT
     }
 
     @Override
