@@ -1,6 +1,5 @@
 package com.xlxyvergil.generalenergy.block;
 
-import com.xlxyvergil.generalenergy.ModRegistration;
 import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -70,9 +69,15 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
     
     @Override
     public void playerWillDestroy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.player.Player player) {
-        // 掉落当前方块（保留 NBT 数据）
+        // 手动保存 BlockEntity 的 NBT 数据到掉落物品
         if (!level.isClientSide && !player.isCreative()) {
-            popResource(level, pos, new ItemStack(this));
+            var blockEntity = level.getBlockEntity(pos);
+            if (blockEntity != null) {
+                var drop = new ItemStack(this);
+                var nbt = blockEntity.saveWithFullMetadata();
+                drop.setTag(nbt);
+                popResource(level, pos, drop);
+            }
         }
         super.playerWillDestroy(level, pos, state, player);
     }

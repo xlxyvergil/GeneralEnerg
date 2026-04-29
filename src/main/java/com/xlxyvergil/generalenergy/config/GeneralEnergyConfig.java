@@ -23,6 +23,7 @@ public class GeneralEnergyConfig {
         public final ForgeConfigSpec.DoubleValue aeToFeCapacityPerConverter;
         
         // RS 转 FE 转换器配置
+        public final ForgeConfigSpec.IntValue rsToFeInternalCapacity;
         public final ForgeConfigSpec.IntValue rsToFeCapacityPerConverter;
         public final ForgeConfigSpec.IntValue rsToFeEnergyUsage;
         public final ForgeConfigSpec.IntValue rsToFeMaxFETransfer;
@@ -53,6 +54,11 @@ public class GeneralEnergyConfig {
             builder.pop();
             
             builder.push("rs_to_fe_converter");
+            
+            rsToFeInternalCapacity = builder
+                .comment("RS转换器内部缓存容量（单位：FE）", "Internal cache capacity of RS converter (unit: FE)")
+                .translation("config.generalenergy.rsToFeInternalCapacity")
+                .defineInRange("internalCapacity", 100000, 1000, Integer.MAX_VALUE);
             
             rsToFeCapacityPerConverter = builder
                 .comment("每个RS转换器增加的FE容量", "Additional FE capacity per RS converter")

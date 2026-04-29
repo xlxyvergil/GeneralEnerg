@@ -102,54 +102,12 @@ public class RSToFENetworkNode extends NetworkNode {
     public void update() {
         super.update();
 
-        // 每个 tick 调用，从 RS 网络提取 FE 并直接对外传输
-        if (network != null && network.getEnergyStorage() instanceof BaseEnergyStorage baseEnergy) {
-            int energyUsage = getEnergyUsage();
-            
-            if (energyUsage > 0) {
-                // 从网络提取 FE
-                int extracted = Math.min(baseEnergy.getEnergyStored(), energyUsage);
-                
-                if (extracted > 0) {
-                    baseEnergy.extractEnergyBypassCanExtract(extracted, false);
-                    
-                    // 直接对外传输（不包括 RS Controller）
-                    emitFEToNeighbors(extracted);
-                }
+        // 调用 BlockEntity 的 tick，从 RS 网络提取能量到内部缓存
+        if (level != null) {
+            var blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof RSToFEConverterBlockEntity rsBE) {
+                rsBE.tick();
             }
-        }
-    }
-    
-    /**
-     * 对外传输 FE（不包括 RS Controller）
-     */
-    private void emitFEToNeighbors(int amount) {
-        if (level == null) return;
-        
-        // 限制单次传输速率
-        int remaining = Math.min(amount, MAX_FE_TRANSFER);
-        
-        for (Direction direction : Direction.values()) {
-            if (remaining <= 0) break;
-            
-            var neighborPos = pos.relative(direction);
-            var neighborBE = level.getBlockEntity(neighborPos);
-            
-            if (neighborBE == null) continue;
-            
-            // 跳过 RS Controller
-            if (neighborBE instanceof ControllerBlockEntity) continue;
-            
-            // 获取邻居的 FE 能力
-            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
-            if (!cap.isPresent()) continue;
-            
-            var handler = cap.orElse(null);
-            if (handler == null) continue;
-            
-            // 传输 FE
-            int sent = handler.receiveEnergy(remaining, false);
-            remaining -= sent;
         }
     }
 
