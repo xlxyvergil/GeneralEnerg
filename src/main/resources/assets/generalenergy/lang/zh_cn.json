@@ -1,4 +1,5 @@
 {
+  "block.generalenergy.energy_interface": "能量接口",
   "block.generalenergy.ae2_to_fe_converter": "AE能源接口",
   "block.generalenergy.rs_to_fe_converter": "RS能源接口",
   "itemGroup.generalenergy.general_energy_tab": "通用能源",

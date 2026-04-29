@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "RFR",
+    " R "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "F": {
+      "item": "minecraft:furnace"
+    }
+  },
+  "result": {
+    "item": "generalenergy:energy_interface",
+    "count": 1
+  }
+}
