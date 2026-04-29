@@ -3,6 +3,7 @@ package com.xlxyvergil.generalenergy;
 import com.mojang.logging.LogUtils;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.AE2ToFEConverterBlockEntity;
+import com.xlxyvergil.generalenergy.block.EnergyInterfaceBlock;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlockEntity;
 import com.xlxyvergil.generalenergy.block.RSToFENetworkNode;
@@ -35,6 +36,15 @@ public class ModRegistration {
     
     // RegistryObject 引用 - 图标物品（始终存在）
     public static final RegistryObject<Item> CREATIVE_TAB_ICON = ITEMS.register("creative_tab_icon", () -> new Item(new Item.Properties()));
+    
+    // 基础方块 - 能量接口（始终存在）
+    public static final RegistryObject<Block> ENERGY_INTERFACE = BLOCKS.register("energy_interface", () -> new EnergyInterfaceBlock(
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.METAL)
+            .strength(3.0F)
+    ));
+    
+    public static final RegistryObject<Item> ENERGY_INTERFACE_ITEM = ITEMS.register("energy_interface", () -> new BlockItem(ENERGY_INTERFACE.get(), new Item.Properties()));
     
     // 创造模式标签页
     public static final RegistryObject<CreativeModeTab> GENERAL_ENERGY_TAB = CREATIVE_MODE_TABS.register("general_energy_tab", () -> 
@@ -83,6 +93,9 @@ public class ModRegistration {
             if (RS_TO_FE_CONVERTER_ITEM != null) {
                 event.accept(RS_TO_FE_CONVERTER_ITEM.get());
             }
+            
+            // 添加基础方块（始终显示）
+            event.accept(ENERGY_INTERFACE_ITEM.get());
         }
     }
     

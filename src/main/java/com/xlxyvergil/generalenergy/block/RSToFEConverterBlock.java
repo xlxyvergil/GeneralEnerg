@@ -1,5 +1,6 @@
 package com.xlxyvergil.generalenergy.block;
 
+import com.xlxyvergil.generalenergy.ModRegistration;
 import com.xlxyvergil.generalenergy.config.GeneralEnergyConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -7,6 +8,7 @@ import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -64,5 +66,14 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.input"));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output"));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.boost", RSToFENetworkNode.EXTRA_CAPACITY_PER_CONVERTER));
+    }
+    
+    @Override
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.player.Player player) {
+        // 掉落基础方块
+        if (!level.isClientSide && !player.isCreative()) {
+            popResource(level, pos, new ItemStack(ModRegistration.ENERGY_INTERFACE_ITEM.get()));
+        }
+        super.playerWillDestroy(level, pos, state, player);
     }
 }
