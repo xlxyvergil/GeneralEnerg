@@ -39,14 +39,15 @@ public class RSToFENetworkNode extends NetworkNode {
 
     private void updateBlockState() {
         if (level == null) return;
-        
+            
         var currentState = level.getBlockState(pos);
         if (!(currentState.getBlock() instanceof RSToFEConverterBlock)) return;
-        
-        var newState = (network != null) 
-            ? RSToFEConverterBlock.EnergyState.ONLINE 
+            
+        // 检查网络是否存在且可以运行（控制器在线）
+        var newState = (network != null && network.canRun()) 
+            ? RSToFEConverterBlock.EnergyState.ONLINE
             : RSToFEConverterBlock.EnergyState.OFFLINE;
-        
+            
         var currentEnergyState = currentState.getValue(RSToFEConverterBlock.ENERGY_STATE);
         if (currentEnergyState != newState) {
             level.setBlock(pos,

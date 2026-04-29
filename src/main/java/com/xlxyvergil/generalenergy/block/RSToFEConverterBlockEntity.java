@@ -56,8 +56,12 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
     public int getEnergyStored() {
         // 返回网络存储的能量
         var networkNode = getNode();
-        if (networkNode != null && networkNode.getNetwork() != null) {
-            return networkNode.getNetwork().getEnergyStorage().getEnergyStored();
+        if (networkNode != null) {
+            var network = networkNode.getNetwork();
+            // 检查网络是否存在且可以运行（控制器在线）
+            if (network != null && network.canRun()) {
+                return network.getEnergyStorage().getEnergyStored();
+            }
         }
         return 0;
     }
@@ -66,8 +70,12 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
     public int getMaxEnergyStored() {
         // 返回网络存储的容量
         var networkNode = getNode();
-        if (networkNode != null && networkNode.getNetwork() != null) {
-            return networkNode.getNetwork().getEnergyStorage().getMaxEnergyStored();
+        if (networkNode != null) {
+            var network = networkNode.getNetwork();
+            // 检查网络是否存在且可以运行（控制器在线）
+            if (network != null && network.canRun()) {
+                return network.getEnergyStorage().getMaxEnergyStored();
+            }
         }
         return 0;
     }

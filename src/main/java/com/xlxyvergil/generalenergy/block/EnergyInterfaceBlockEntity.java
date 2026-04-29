@@ -74,12 +74,22 @@ public class EnergyInterfaceBlockEntity extends BlockEntity {
                 }
             }
             
-            // 检测 RS 网络节点
-            if (ModList.get().isLoaded("refinedstorage") && neighborBE instanceof INetworkNodeProxy<?>) {
-                var proxy = (INetworkNodeProxy<?>) neighborBE;
-                var networkNode = proxy.getNode();
-                if (networkNode != null && networkNode.getNetwork() != null) {
-                    return NetworkType.RS;
+            // 检测 RS 网络节点 - 检查是否存在 RS 网络节点
+            if (ModList.get().isLoaded("refinedstorage")) {
+                try {
+                    var rsAPI = com.refinedmods.refinedstorage.apiimpl.API.instance();
+                    if (rsAPI != null) {
+                        var nodeManager = rsAPI.getNetworkNodeManager((net.minecraft.server.level.ServerLevel) level);
+                        if (nodeManager != null) {
+                            var rsNode = nodeManager.getNode(neighborPos);
+                            // 只要存在 RS 网络节点就判定为 RS 网络
+                            if (rsNode != null) {
+                                return NetworkType.RS;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // 忽略异常，继续检测其他类型
                 }
             }
         }
