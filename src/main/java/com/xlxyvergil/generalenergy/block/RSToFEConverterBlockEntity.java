@@ -18,6 +18,8 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENetworkNode> implements IEnergyStorage {
@@ -156,39 +158,74 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
     }
     
     /**
-     * 从内部缓存输出 FE 到邻居
+     * 从内部缓存输出 FE 到邻居（完全参照 AE2 实现）
      */
     private void emitFEToNeighbors(int maxOutput) {
         if (level == null || maxOutput <= 0) return;
         
-        int remaining = maxOutput;
+        // 计算可用的FE总量（基于当前内部缓存）
+        int availableFE = internalStorage.getEnergyStored();
+        
+        // 限制本tick的最大输出
+        int maxOutputThisTick = Math.min(availableFE, maxOutput);
+        if (maxOutputThisTick <= 0) return;
+        
+        // 收集所有有需求的邻居
+        List<FEDemandInfo> demands = new ArrayList<>();
         for (Direction direction : Direction.values()) {
-            if (remaining <= 0) break;
-            
             var neighborPos = getBlockPos().relative(direction);
-            var neighborBE = level.getBlockEntity(neighborPos);
-            
+            if (this.level == null) continue;
+            var neighborBE = this.level.getBlockEntity(neighborPos);
             if (neighborBE == null) continue;
             
-            // 不指定方向，让邻居自己决定从哪个面接收
-            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, null);
-            if (!cap.isPresent()) continue;
+            // 获取邻居的FE能力
+            var optionalHandler = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (!optionalHandler.isPresent()) continue;
             
-            var handler = cap.orElse(null);
+            var handler = optionalHandler.orElse(null);
             if (handler == null) continue;
             
-            // 实际输出FE（从内部缓存提取）
-            int sent = internalStorage.extractEnergy(remaining, false);
-            if (sent > 0) {
-                // 发送给邻居
-                int actuallyReceived = handler.receiveEnergy(sent, false);
-                // 如果没完全接收，退回内部缓存
-                if (actuallyReceived < sent) {
-                    internalStorage.receiveEnergy(sent - actuallyReceived, false);
-                }
-                remaining -= actuallyReceived;
+            // 模拟检测：邻居这个tick最多能接收多少FE
+            int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
+            if (canReceive <= 0) continue;
+            
+            demands.add(new FEDemandInfo(handler, canReceive));
+        }
+        
+        if (demands.isEmpty()) return;
+        
+        // 按需求比例分配可用FE
+        int totalDemand = demands.stream().mapToInt(d -> d.demand).sum();
+        int remainingOutput = maxOutputThisTick;
+        
+        for (FEDemandInfo demand : demands) {
+            if (remainingOutput <= 0) break;
+            
+            // 按比例分配
+            int allocated = totalDemand > 0 ? (int) Math.floor((double) demand.demand / totalDemand * maxOutputThisTick) : 0;
+            allocated = Math.min(allocated, remainingOutput);
+            allocated = Math.min(allocated, demand.demand);
+            
+            if (allocated <= 0) continue;
+            
+            // 实际发送FE（从内部缓存提取）
+            int actuallySent = demand.handler.receiveEnergy(allocated, false);
+            if (actuallySent > 0) {
+                // 从内部缓存扣除
+                internalStorage.extractEnergy(actuallySent, false);
+                remainingOutput -= actuallySent;
                 setChanged();
             }
+        }
+    }
+    
+    private static class FEDemandInfo {
+        IEnergyStorage handler;
+        int demand;
+        
+        FEDemandInfo(IEnergyStorage handler, int demand) {
+            this.handler = handler;
+            this.demand = demand;
         }
     }
 

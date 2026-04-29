@@ -7,7 +7,6 @@ import com.xlxyvergil.generalenergy.block.EnergyInterfaceBlock;
 import com.xlxyvergil.generalenergy.block.EnergyInterfaceBlockEntity;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlock;
 import com.xlxyvergil.generalenergy.block.RSToFEConverterBlockEntity;
-import com.xlxyvergil.generalenergy.block.RSToFENetworkNode;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -139,17 +138,6 @@ public class ModRegistration {
         }
         
         LOGGER.info("RS detected, registering RS content");
-        
-        // 注册 RS NetworkNode
-        try {
-            com.refinedmods.refinedstorage.apiimpl.API.instance().getNetworkNodeRegistry().add(
-                RSToFENetworkNode.ID,
-                (tag, world, pos) -> new RSToFENetworkNode(world, pos)
-            );
-            LOGGER.info("RS NetworkNode registered successfully");
-        } catch (Exception e) {
-            LOGGER.error("Failed to register RS NetworkNode", e);
-        }
         
         RS_TO_FE_CONVERTER = BLOCKS.register("rs_to_fe_converter", () -> new RSToFEConverterBlock(
             BlockBehaviour.Properties.of()

@@ -1,6 +1,7 @@
 package com.xlxyvergil.generalenergy.block;
 
 import appeng.me.helpers.IGridConnectedBlockEntity;
+import com.refinedmods.refinedstorage.api.network.node.INetworkNodeProxy;
 import com.xlxyvergil.generalenergy.ModRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,12 +29,12 @@ public class EnergyInterfaceBlockEntity extends BlockEntity {
         
         switch (detectedType) {
             case AE2:
-                if (!(getBlockState().getBlock() instanceof AE2ToFEConverterBlock)) {
+                if (ModList.get().isLoaded("ae2") && !(getBlockState().getBlock() instanceof AE2ToFEConverterBlock)) {
                     replaceWithAE2Converter();
                 }
                 break;
             case RS:
-                if (!(getBlockState().getBlock() instanceof RSToFEConverterBlock)) {
+                if (ModList.get().isLoaded("refinedstorage") && !(getBlockState().getBlock() instanceof RSToFEConverterBlock)) {
                     replaceWithRSConverter();
                 }
                 break;
@@ -64,29 +65,19 @@ public class EnergyInterfaceBlockEntity extends BlockEntity {
             if (neighborBE == null) continue;
             
             // 检测 AE2 网络节点
-            if (ModList.get().isLoaded("ae2") && neighborBE instanceof IGridConnectedBlockEntity) {
-                var node = ((IGridConnectedBlockEntity) neighborBE).getMainNode();
-                if (node != null && node.isReady()) {
-                    return NetworkType.AE2;
+            if (ModList.get().isLoaded("ae2")) {
+                if (neighborBE instanceof IGridConnectedBlockEntity) {
+                    var node = ((IGridConnectedBlockEntity) neighborBE).getMainNode();
+                    if (node != null && node.isReady()) {
+                        return NetworkType.AE2;
+                    }
                 }
             }
             
-            // 检测 RS 网络节点 - 检查是否存在 RS 网络节点
+            // 检测 RS 网络节点
             if (ModList.get().isLoaded("refinedstorage")) {
-                try {
-                    var rsAPI = com.refinedmods.refinedstorage.apiimpl.API.instance();
-                    if (rsAPI != null) {
-                        var nodeManager = rsAPI.getNetworkNodeManager((net.minecraft.server.level.ServerLevel) level);
-                        if (nodeManager != null) {
-                            var rsNode = nodeManager.getNode(neighborPos);
-                            // 只要存在 RS 网络节点就判定为 RS 网络
-                            if (rsNode != null) {
-                                return NetworkType.RS;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // 忽略异常，继续检测其他类型
+                if (neighborBE instanceof INetworkNodeProxy) {
+                    return NetworkType.RS;
                 }
             }
         }
