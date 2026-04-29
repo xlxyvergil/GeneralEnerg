@@ -56,6 +56,38 @@ public class EnergyInterfaceBlock extends Block {
         super.playerWillDestroy(level, pos, state, player);
     }
     
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
+        
+        if (level.isClientSide()) return;
+        
+        // 检测相邻方块的网络类型
+        NetworkType detectedType = detectNetworkType(level, pos);
+        
+        // 根据检测结果替换为对应方块
+        switch (detectedType) {
+            case AE2:
+                // 如果当前不是 AE2 转换器，才替换
+                if (!(state.getBlock() instanceof AE2ToFEConverterBlock)) {
+                    replaceWithAE2Converter(level, pos, state);
+                }
+                break;
+            case RS:
+                // 如果当前不是 RS 转换器，才替换
+                if (!(state.getBlock() instanceof RSToFEConverterBlock)) {
+                    replaceWithRSConverter(level, pos, state);
+                }
+                break;
+            case NONE:
+                // 如果当前是转换器，变回基础方块
+                if (state.getBlock() instanceof AE2ToFEConverterBlock || state.getBlock() instanceof RSToFEConverterBlock) {
+                    level.setBlock(pos, ModRegistration.ENERGY_INTERFACE.get().defaultBlockState(), 3);
+                }
+                break;
+        }
+    }
+    
     /**
      * 检测相邻方块的网络类型
      * 检测顺序：西、东、北、南、下、上
