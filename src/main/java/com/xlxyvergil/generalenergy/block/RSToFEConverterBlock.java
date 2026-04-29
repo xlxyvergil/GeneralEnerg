@@ -18,7 +18,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public class AE2ToFEConverterBlock extends Block implements EntityBlock {
+public class RSToFEConverterBlock extends Block implements EntityBlock {
 
     public enum EnergyState implements StringRepresentable {
         OFFLINE("offline"),
@@ -38,7 +38,7 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<EnergyState> ENERGY_STATE = EnumProperty.create("energy_state", EnergyState.class);
 
-    public AE2ToFEConverterBlock(BlockBehaviour.Properties properties) {
+    public RSToFEConverterBlock(BlockBehaviour.Properties properties) {
         super(properties);
         this.registerDefaultState(this.defaultBlockState().setValue(ENERGY_STATE, EnergyState.OFFLINE));
     }
@@ -50,22 +50,22 @@ public class AE2ToFEConverterBlock extends Block implements EntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new AE2ToFEConverterBlockEntity(pos, state);
+        return new RSToFEConverterBlockEntity(pos, state);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
         // 功能说明
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.description"));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.description"));
         
-        double baseConsumption = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get();
-        int maxFEOutput = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get();
-        double capacityPerConverter = GeneralEnergyConfig.COMMON.aeToFeCapacityPerConverter.get();
-        int maxAEPower = GeneralEnergyConfig.COMMON.aeToFeMaxAEPower.get();
+        int energyUsage = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
+        int maxFETransfer = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
+        int capacityPerConverter = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
+        int internalCapacity = GeneralEnergyConfig.COMMON.rsToFeInternalCapacity.get();
         
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.consumption", String.format("%.0f", baseConsumption)));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.output_limit", maxFEOutput));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.network_capacity", String.format("%.0f", capacityPerConverter)));
-        tooltip.add(Component.translatable("tooltip.generalenergy.ae2_to_fe_converter.internal_capacity", maxAEPower));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.consumption", energyUsage));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output_limit", maxFETransfer));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.internal_capacity", internalCapacity));
     }
 }

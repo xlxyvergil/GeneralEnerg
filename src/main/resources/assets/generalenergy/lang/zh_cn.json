@@ -1,0 +1,18 @@
+{
+  "block.generalenergy.energy_interface": "能量接口",
+  "block.generalenergy.ae2_to_fe_converter": "AE能源接口",
+  "block.generalenergy.rs_to_fe_converter": "RS能源接口",
+  "itemGroup.generalenergy.general_energy_tab": "通用能源",
+  
+  "tooltip.generalenergy.ae2_to_fe_converter.description": "§7将AE2网络内的AE能量转换为FE对外输出",
+  "tooltip.generalenergy.ae2_to_fe_converter.consumption": "§b默认消耗: §f%s AE/t",
+  "tooltip.generalenergy.ae2_to_fe_converter.output_limit": "§b输出上限: §f%s FE/t",
+  "tooltip.generalenergy.ae2_to_fe_converter.network_capacity": "§b网络容量提升: §f%s AE/方块",
+  "tooltip.generalenergy.ae2_to_fe_converter.internal_capacity": "§b内部容量: §f%s AE",
+
+  "tooltip.generalenergy.rs_to_fe_converter.description": "§7将RS网络内的FE能量提供对外输出",
+  "tooltip.generalenergy.rs_to_fe_converter.consumption": "§b默认消耗: §f%s FE/t",
+  "tooltip.generalenergy.rs_to_fe_converter.output_limit": "§b输出上限: §f%s FE/t",
+  "tooltip.generalenergy.rs_to_fe_converter.network_capacity": "§b网络容量提升: §f%s FE/方块",
+  "tooltip.generalenergy.rs_to_fe_converter.internal_capacity": "§b内部容量: §f%s FE"
+}

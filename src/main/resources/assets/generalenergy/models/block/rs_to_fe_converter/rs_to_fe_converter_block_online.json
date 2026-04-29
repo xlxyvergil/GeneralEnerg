@@ -1,5 +1,5 @@
 {
-  "parent": "generalenergy:block/ae2_to_fe_converter/ae2_to_fe_converter_block_lights",
+  "parent": "generalenergy:block/rs_to_fe_converter/rs_to_fe_converter_block_lights",
   "textures": {
     "block": "generalenergy:block/to_fe_converter_online",
     "lights": "generalenergy:block/to_fe_converter_lights"
