@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "generalenergy:block/energy_interface"
+    }
+  }
+}

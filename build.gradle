@@ -122,6 +122,12 @@ obfuscation {
     createRemappingConfiguration(configurations.localRuntime)
 }
 
+// Mixin configuration for network capacity boost
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+}
+
 dependencies {
     // If you wish to declare dependencies against mods, make sure to use the 'mod*' configurations so that they're remapped.
 	// See https://github.com/neoforged/ModDevGradle/blob/main/LEGACY.md#remapping-mod-dependencies for more information.
@@ -129,16 +135,12 @@ dependencies {
     // Applied Energistics 2 - optional dependency
     modCompileOnly "curse.maven:applied-energistics-2-223794:6357138"
     modRuntimeOnly "curse.maven:applied-energistics-2-223794:6357138"
-}
-
-// Uncomment the lines below if you wish to configure mixin. The mixin file should be named modid.mixins.json.
-/*
-mixin {
-    add sourceSets.main, "${mod_id}.refmap.json"
-    config "${mod_id}.mixins.json"
-}
-
-dependencies {
+    
+    // Refined Storage - optional dependency
+    modCompileOnly "curse.maven:refined-storage-243076:4844585"
+    modRuntimeOnly "curse.maven:refined-storage-243076:4844585"
+    
+    // Mixin processor
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
@@ -147,7 +149,6 @@ jar {
             "MixinConfigs": "${mod_id}.mixins.json"
     ])
 }
-*/
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.

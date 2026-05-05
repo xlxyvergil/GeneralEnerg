@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "generalenergy:rs_to_fe_converter"
+    }
+  ],
+  "result": {
+    "item": "generalenergy:energy_interface",
+    "count": 1
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "energy_state=offline": {
+      "model": "generalenergy:block/rs_to_fe_converter/rs_to_fe_converter_block_offline"
+    },
+    "energy_state=online": {
+      "model": "generalenergy:block/rs_to_fe_converter/rs_to_fe_converter_block_online"
+    }
+  }
+}

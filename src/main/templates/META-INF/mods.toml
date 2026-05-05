@@ -83,9 +83,17 @@ description='''${mod_description}'''
 
 # AE2 optional dependency
 [[dependencies.${mod_id}]]
-    modId="appliedenergistics2"
+    modId="ae2"
     mandatory=false
     versionRange="[15,16)"
+    ordering="NONE"
+    side="BOTH"
+
+# Refined Storage optional dependency
+[[dependencies.${mod_id}]]
+    modId="refinedstorage"
+    mandatory=false
+    versionRange="[1.11,)"
     ordering="NONE"
     side="BOTH"
 
