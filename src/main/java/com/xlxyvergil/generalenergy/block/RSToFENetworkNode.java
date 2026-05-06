@@ -23,8 +23,8 @@ public class RSToFENetworkNode extends NetworkNode {
     // RS 网络节点的能量消耗（每 tick）- 从配置读取，默认10
     public static final int ENERGY_USAGE = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
     
-    // 最大提取/传输速率：80k FE/t - 从配置读取
-    public static final int MAX_FE_TRANSFER = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
+    // 每个连接面增加的抽取速率 - 从配置读取
+    public static final int BONUS_PER_SIDE = GeneralEnergyConfig.COMMON.rsToFeBonusPerSide.get();
 
     public RSToFENetworkNode(Level level, BlockPos pos) {
         super(level, pos);
@@ -65,9 +65,8 @@ public class RSToFENetworkNode extends NetworkNode {
         // 计算总能量消耗 = 自身基础消耗 + 对外传输的FE量
         if (level == null) return ENERGY_USAGE;
         
-        // 计算6方向邻居的总FE需求
-        int totalDemand = 0;
-        
+        // 计算6方向邻居的有效连接面数
+        int connectedSides = 0;
         for (Direction direction : Direction.values()) {
             var neighborPos = pos.relative(direction);
             var neighborBE = level.getBlockEntity(neighborPos);
@@ -77,24 +76,15 @@ public class RSToFENetworkNode extends NetworkNode {
             // 跳过 RS Controller
             if (neighborBE instanceof ControllerBlockEntity) continue;
             
-            // 获取邻居的 FE 能力
+            // 检查是否有 FE 能力
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
-            if (!cap.isPresent()) continue;
-            
-            var handler = cap.orElse(null);
-            if (handler == null) continue;
-            
-            // 模拟检测：邻居最多能接收多少 FE
-            // 使用 MAX_FE_TRANSFER 探测，避免极端数值
-            int canReceive = handler.receiveEnergy(MAX_FE_TRANSFER, true);
-            totalDemand += canReceive;
+            if (cap.isPresent() && cap.orElse(null) != null) {
+                connectedSides++;
+            }
         }
         
-        // 限制最大提取速率
-        int feTransferAmount = Math.min(totalDemand, MAX_FE_TRANSFER);
-        
-        // 总消耗 = 基础消耗 + 对外传输的FE量
-        return ENERGY_USAGE + feTransferAmount;
+        // 总消耗 = 基础消耗 + (连接面数 * 单面奖励)
+        return ENERGY_USAGE + (connectedSides * BONUS_PER_SIDE);
     }
 
     @Override

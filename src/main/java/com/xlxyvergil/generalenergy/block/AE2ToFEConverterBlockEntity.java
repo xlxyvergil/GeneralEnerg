@@ -25,29 +25,22 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.energy.IEnergyStorage;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity implements IGridTickable {
 
     private static final int MAX_AE_POWER = GeneralEnergyConfig.COMMON.aeToFeMaxAEPower.get(); // AE缓存上限（从配置读取）
     private static final double BASE_AE_CONSUMPTION = GeneralEnergyConfig.COMMON.aeToFeBaseConsumption.get(); // 基础AE消耗（从配置读取）
-    private static final int MAX_FE_OUTPUT_PER_CONVERTER = GeneralEnergyConfig.COMMON.aeToFeMaxFEOutputPerConverter.get(); // 每个转换器最大FE输出（从配置读取）
-    private static final double AE_TO_FE_RATIO = PowerMultiplier.CONFIG.multiplier; // 从 AE2 配置读取转换率
+    private static final double AE_BONUS_PER_SIDE = GeneralEnergyConfig.COMMON.aeToFeBonusPerSide.get(); // 每个连接面增加的AE抽取速率
     private static final double CAPACITY_PER_CONVERTER = GeneralEnergyConfig.COMMON.aeToFeCapacityPerConverter.get(); // 每个转换器增加的AE容量（从配置读取）
-    private double currentIdlePowerUsage = BASE_AE_CONSUMPTION;
 
     public AE2ToFEConverterBlockEntity(BlockPos pos, BlockState state) {
         super(ModRegistration.AE2_TO_FE_CONVERTER_ENTITY.get(), pos, state);
         this.setInternalMaxPower(MAX_AE_POWER);
         
         this.getMainNode()
-            .setIdlePowerUsage(BASE_AE_CONSUMPTION)
+            .setIdlePowerUsage(0) // 初始为0，在tick中动态设置
             .addService(IGridTickable.class, this);
-        // 不设置为公共电源存储，防止网络直接注入AE（会导致瞬间填满）
-        // 我们通过extractAEAndConvertToFE主动控制提取速度
     }
 
     /**
@@ -59,7 +52,7 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         this.setInternalMaxPower(MAX_AE_POWER);
         
         this.getMainNode()
-            .setIdlePowerUsage(BASE_AE_CONSUMPTION)
+            .setIdlePowerUsage(0)
             .addService(IGridTickable.class, this);
     }
 
@@ -104,60 +97,66 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         updateBlockState();
     }
 
-    /**
-     * 覆盖funnelPowerIntoStorage，但我们的方块不接收AE存储，而是直接从网络提取AE转换为FE
-     */
-    @Override
-    protected double funnelPowerIntoStorage(double power, Actionable mode) {
-        // 我们的方块不存储AE，直接返回未接收的量
-        return power;
-    }
 
-    /**
-     * 从AE2网络提取AE能量转换为FE
-     * 每次tickingRequest调用时执行
-     * @param aeSpace AE缓存剩余空间
-     */
-    private void extractAEAndConvertToFE(double aeSpace) {
-        var grid = getMainNode().getGrid();
-        if (grid == null) return;
-        
-        // 填充自身AE缓存时，限制速率为BASE_AE_CONSUMPTION（100 AE/t）
-        double extractAE = Math.min(aeSpace, BASE_AE_CONSUMPTION);
-        
-        // 直接从网络提取并注入到内部存储
-        double extracted = grid.getEnergyService().extractAEPower(extractAE, Actionable.MODULATE, PowerMultiplier.ONE);
-        
-        if (extracted > 0) {
-            // 使用injectAEPower注入到内部存储
-            double notInserted = this.injectAEPower(extracted, Actionable.MODULATE);
-            // 如果没有完全注入（存储满了），提取的多余AE应该返回网络
-            if (notInserted > 0) {
-                grid.getEnergyService().injectPower(notInserted, Actionable.MODULATE);
-            }
-        }
-    }
-
-    // IGridTickable接口实现 - 告诉AE2我们需要被tick
+    // IGridTickable接口实现 - 告诉AE2我们需要被tick（用于动态更新idlePowerUsage）
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        // 每tick都调用，类似于Charger的tick速率
         return new TickingRequest(TickRates.Charger, false, true);
     }
 
-    // IGridTickable接口实现 - AE2网格定期调用此方法进行tick
+    // IGridTickable接口实现 - AE2网格定期调用（仅用于保持网络连接）
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        var grid = getMainNode().getGrid();
-        if (grid == null) return TickRateModulation.SLOWER;
+        return TickRateModulation.SLOWER;
+    }
+    
+    // 原生 tick() - 每 Tick 执行，负责从网络提取能量并推送到邻居
+    public void tick() {
+        if (level == null || level.isClientSide()) return;
         
-        // 第1步：检测6个方向的总FE需求
-        int totalFEDemand = 0;
-        int[] faceDemands = new int[6];  // 记录每个面的需求
-        for (int i = 0; i < Direction.values().length; i++) {
-            Direction direction = Direction.values()[i];
+        var grid = getMainNode().getGrid();
+        if (grid == null) return;
+        
+        // 1. 计算有效连接面数
+        int connectedSides = 0;
+        for (Direction direction : Direction.values()) {
             var neighborPos = this.worldPosition.relative(direction);
-            if (this.level == null) continue;
+            var neighborBE = this.level.getBlockEntity(neighborPos);
+            if (neighborBE == null) continue;
+            
+            String beClassName = neighborBE.getClass().getName();
+            if (beClassName.contains("ControllerBlockEntity") || 
+                beClassName.contains("appeng.blockentity.networking.ControllerBlockEntity")) {
+                continue;
+            }
+            
+            var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (cap.isPresent() && cap.orElse(null) != null) {
+                connectedSides++;
+            }
+        }
+        
+        // 2. 动态计算本 Tick 的 AE 提取目标
+        double targetAE = BASE_AE_CONSUMPTION + (connectedSides * AE_BONUS_PER_SIDE);
+        
+        // 3. 从 AE2 网络提取能量并存入缓存
+        double extracted = grid.getEnergyService().extractAEPower(targetAE, Actionable.MODULATE, PowerMultiplier.ONE);
+        if (extracted > 0) {
+            this.injectAEPower(extracted, Actionable.MODULATE);
+        }
+        
+        // 4. 从内部缓存提取 AE 转换为 FE，推送到邻居
+        emitFEToNeighbors();
+    }
+    
+    private void emitFEToNeighbors() {
+        if (this.level == null || this.level.isClientSide()) return;
+        
+        double currentAE = getInternalCurrentPower();
+        if (currentAE <= 0) return;
+        
+        for (Direction direction : Direction.values()) {
+            var neighborPos = this.worldPosition.relative(direction);
             var neighborBE = this.level.getBlockEntity(neighborPos);
             if (neighborBE == null) continue;
             
@@ -169,134 +168,38 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             }
             
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
-            if (cap.isPresent()) {
-                var handler = cap.orElse(null);
-                if (handler == null) continue;
-                int demand = handler.receiveEnergy(Integer.MAX_VALUE, true);
-                faceDemands[i] = demand;
-                totalFEDemand += demand;
-            }
-        }
-        
-        // 第2步：先提取AE填充自身缓存（限制为BASE_AE_CONSUMPTION）
-        double currentAE = getInternalCurrentPower();
-        double maxAE = getInternalMaxPower();
-        double aeSpace = maxAE - currentAE;
-        extractAEAndConvertToFE(aeSpace);  // 内部会限制为BASE_AE_CONSUMPTION
-        
-        // 第3步：计算总AE需求
-        double externalAENeeded = 0;
-        if (totalFEDemand > 0) {
-            // 有外部需求：基础消耗 + 外部需求（上限 MAX_FE_OUTPUT_PER_CONVERTER）
-            externalAENeeded = Math.min(totalFEDemand / AE_TO_FE_RATIO, MAX_FE_OUTPUT_PER_CONVERTER / AE_TO_FE_RATIO);
-        }
-        
-        double internalAENeeded = 0;
-        if (externalAENeeded == 0 && aeSpace > 0) {
-            // 无外部需求且内部缓存未满：仅填充内部缓存
-            internalAENeeded = Math.min(aeSpace, BASE_AE_CONSUMPTION);
-        }
-        // 否则（内部缓存满或已有外部需求）：不额外填充
-        
-        double totalAENeeded = externalAENeeded + internalAENeeded;
-        
-        // 第4步：设置idlePowerUsage为总需求
-        if (currentIdlePowerUsage != totalAENeeded) {
-            currentIdlePowerUsage = totalAENeeded;
-            this.getMainNode().setIdlePowerUsage(totalAENeeded);
-            updateBlockState();
-        }
-        
-        // 第5步：对外输出FE
-        emitFEToNeighbors();
-        
-        return TickRateModulation.FASTER;
-    }
-    
-    /**
-     * 对外输出FE（参考Mekanism的CableUtils.emit逻辑）
-     * @return 实际输出的FE总量
-     */
-    private int emitFEToNeighbors() {
-        int totalSent = 0;
-        
-        // 计算可用的FE总量（基于当前AE缓存）
-        double currentAE = getInternalCurrentPower();
-        int availableFE = (int) Math.floor(currentAE * AE_TO_FE_RATIO);
-        
-        // 限制本tick的最大输出
-        int maxOutputThisTick = Math.min(availableFE, MAX_FE_OUTPUT_PER_CONVERTER);
-        if (maxOutputThisTick <= 0) return 0;
-        
-        // 收集所有有需求的邻居
-        List<FEDemandInfo> demands = new ArrayList<>();
-        for (Direction direction : Direction.values()) {
-            var neighborPos = this.worldPosition.relative(direction);
-            if (this.level == null) continue;
-            var neighborBE = this.level.getBlockEntity(neighborPos);
-            if (neighborBE == null) continue;
+            if (!cap.isPresent()) continue;
             
-            // 跳过AE2 Controller防止循环
-            String beClassName = neighborBE.getClass().getName();
-            if (beClassName.contains("ControllerBlockEntity") || 
-                beClassName.contains("appeng.blockentity.networking.ControllerBlockEntity")) {
-                continue;
-            }
-            
-            // 获取邻居的FE能力
-            var optionalHandler = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
-            if (!optionalHandler.isPresent()) continue;
-            
-            var handler = optionalHandler.orElse(null);
+            var handler = cap.orElse(null);
             if (handler == null) continue;
             
-            // 模拟检测：邻居这个tick最多能接收多少FE
-            int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
-            if (canReceive <= 0) continue;
+            // 计算该面可推送的 FE 量（单面奖励对应的 FE）
+            int feToSend = (int) Math.floor(AE_BONUS_PER_SIDE * PowerMultiplier.CONFIG.multiplier);
+            if (feToSend <= 0) continue;
             
-            demands.add(new FEDemandInfo(handler, canReceive));
-        }
-        
-        if (demands.isEmpty()) return 0;
-        
-        // 按需求比例分配可用FE
-        int totalDemand = demands.stream().mapToInt(d -> d.demand).sum();
-        int remainingOutput = maxOutputThisTick;
-        
-        for (FEDemandInfo demand : demands) {
-            if (remainingOutput <= 0) break;
+            // 检查缓存是否有足够的 AE 转换为 FE
+            double aeNeeded = feToSend / PowerMultiplier.CONFIG.multiplier;
+            if (currentAE < aeNeeded) {
+                feToSend = (int) Math.floor(currentAE * PowerMultiplier.CONFIG.multiplier);
+                if (feToSend <= 0) continue;
+            }
             
-            // 按比例分配
-            int allocated = totalDemand > 0 ? (int) Math.floor((double) demand.demand / totalDemand * maxOutputThisTick) : 0;
-            allocated = Math.min(allocated, remainingOutput);
-            allocated = Math.min(allocated, demand.demand);
-            
-            if (allocated <= 0) continue;
-            
-            // 实际发送FE（从AE转换）
-            int actuallySent = demand.handler.receiveEnergy(allocated, false);
-            if (actuallySent > 0) {
-                // 从AE2内部存储扣除对应的AE
-                double aeNeeded = actuallySent / AE_TO_FE_RATIO;
-                this.extractAEPower(aeNeeded, Actionable.MODULATE);
-                totalSent += actuallySent;
-                remainingOutput -= actuallySent;
+            // 模拟检测邻居能接收多少
+            int canReceive = handler.receiveEnergy(feToSend, true);
+            if (canReceive > 0) {
+                // 实际推送
+                int actuallySent = handler.receiveEnergy(canReceive, false);
+                if (actuallySent > 0) {
+                    // 从 AE2 缓存扣除对应的 AE
+                    double aeActuallyUsed = actuallySent / PowerMultiplier.CONFIG.multiplier;
+                    this.extractAEPower(aeActuallyUsed, Actionable.MODULATE);
+                    currentAE -= aeActuallyUsed;
+                    setChanged();
+                }
             }
         }
-        
-        return totalSent;
     }
     
-    private static class FEDemandInfo {
-        IEnergyStorage handler;
-        int demand;
-        
-        FEDemandInfo(IEnergyStorage handler, int demand) {
-            this.handler = handler;
-            this.demand = demand;
-        }
-    }
-
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
