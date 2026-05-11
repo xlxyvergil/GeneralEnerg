@@ -59,12 +59,12 @@ public class RSToFEConverterBlock extends Block implements EntityBlock {
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.description"));
         
         int energyUsage = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
-        int bonusPerSide = GeneralEnergyConfig.COMMON.rsToFeBonusPerSide.get();
+        int maxFETransfer = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
         int capacityPerConverter = GeneralEnergyConfig.COMMON.rsToFeCapacityPerConverter.get();
         int internalCapacity = GeneralEnergyConfig.COMMON.rsToFeInternalCapacity.get();
         
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.base_consumption", energyUsage));
-        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.bonus_per_side", bonusPerSide));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.consumption", energyUsage));
+        tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.output_limit", maxFETransfer));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.network_capacity", capacityPerConverter));
         tooltip.add(Component.translatable("tooltip.generalenergy.rs_to_fe_converter.internal_capacity", internalCapacity));
     }

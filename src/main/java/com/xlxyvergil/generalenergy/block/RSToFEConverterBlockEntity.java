@@ -18,19 +18,21 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENetworkNode> implements IEnergyStorage {
 
     // 内部能量缓存容量 - 使用 RS 转换器独立配置
     private static final int INTERNAL_CAPACITY = GeneralEnergyConfig.COMMON.rsToFeInternalCapacity.get();
-    // 基础消耗速率 - 从配置读取
-    private static final int BASE_ENERGY_USAGE = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
-    // 每个连接面增加的抽取速率 - 从配置读取
-    private static final int BONUS_PER_SIDE = GeneralEnergyConfig.COMMON.rsToFeBonusPerSide.get();
+    // 无外部需求时的填充速率 / 基础消耗 - 从配置读取（默认100 FE/t）
+    private static final int ENERGY_USAGE = GeneralEnergyConfig.COMMON.rsToFeEnergyUsage.get();
+    // 最大输出速率 - 从配置读取
+    private static final int MAX_OUTPUT_RATE = GeneralEnergyConfig.COMMON.rsToFeMaxFETransfer.get();
     
-    // 内部能量缓存（可序列化的包装类），最大提取速率设为无限制，由外部拉取决定
-    private final SerializableEnergyStorage internalStorage = new SerializableEnergyStorage(INTERNAL_CAPACITY, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    // 内部能量缓存（可序列化的包装类）
+    private final SerializableEnergyStorage internalStorage = new SerializableEnergyStorage(INTERNAL_CAPACITY, Integer.MAX_VALUE, MAX_OUTPUT_RATE);
     
     // 可序列化的能量存储包装类（参考Mekanism的BasicEnergyContainer）
     private static class SerializableEnergyStorage extends BaseEnergyStorage {
@@ -74,7 +76,11 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
     }
     
     /**
-     * 每个 tick 调用，根据外部潜在需求动态决定从 RS 网络提取的能量
+     * 每个 tick 调用，从 RS 网络提取能量到内部缓存
+     * 逻辑：
+     * 1. 无外部需求时：以 ENERGY_USAGE 填充内部缓存
+     * 2. 有外部需求时：消耗 = ENERGY_USAGE + 外部需求（上限 MAX_OUTPUT_RATE）
+     * 3. 内部缓存满且无外部需求时：停止消耗
      */
     public void tick() {
         if (level == null || level.isClientSide()) return;
@@ -85,21 +91,57 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
         
         if (!hasNetwork) return;
         
-        var rsEnergyStorage = network.getEnergyStorage();
-        if (!(rsEnergyStorage instanceof com.refinedmods.refinedstorage.energy.BaseEnergyStorage baseStorage)) return;
+        // 计算外部总需求（限制在 MAX_OUTPUT_RATE 内）
+        int externalDemand = Math.min(calculateExternalDemand(), MAX_OUTPUT_RATE);
         
-        // 1. 固定部分：无条件从 RS 网络抽取基础能量，存入缓存
-        int baseExtracted = Math.min(BASE_ENERGY_USAGE, baseStorage.getEnergyStored());
-        if (baseExtracted > 0) {
-            baseStorage.extractEnergyBypassCanExtract(baseExtracted, false);
-            internalStorage.receiveEnergy(baseExtracted, false);
-            setChanged();
+        // 计算本 tick 需要从 RS 网络提取的能量
+        int energyNeeded;
+        if (externalDemand > 0) {
+            // 有外部需求：基础消耗（填充内部缓存） + 外部需求
+            int spaceInInternal = internalStorage.getMaxEnergyStored() - internalStorage.getEnergyStored();
+            int fillInternal = Math.min(ENERGY_USAGE, spaceInInternal);
+            energyNeeded = fillInternal + externalDemand;
+        } else {
+            // 无外部需求：仅填充内部缓存
+            int spaceInInternal = internalStorage.getMaxEnergyStored() - internalStorage.getEnergyStored();
+            if (spaceInInternal <= 0) return;
+            energyNeeded = Math.min(ENERGY_USAGE, spaceInInternal);
         }
         
-        // 2. 动态部分：遍历每个面，如果该面有邻居，则额外抽取并存入缓存，然后立即推送
+        // 第1步：从 RS 网络提取能量到内部缓存
+        if (energyNeeded > 0) {
+            var rsEnergyStorage = network.getEnergyStorage();
+            if (rsEnergyStorage instanceof com.refinedmods.refinedstorage.energy.BaseEnergyStorage baseStorage 
+                && baseStorage.getEnergyStored() > 0) {
+                // 使用 extractEnergyBypassCanExtract 绕过RS网络的canExtract限制
+                int extracted = Math.min(energyNeeded, baseStorage.getEnergyStored());
+                baseStorage.extractEnergyBypassCanExtract(extracted, false);
+                
+                if (extracted > 0) {
+                    // 存入内部缓存
+                    internalStorage.receiveEnergy(extracted, false);
+                    setChanged();
+                }
+            }
+        }
+        
+        // 第2步：从内部缓存输出到外部
+        if (externalDemand > 0) {
+            emitFEToNeighbors(externalDemand);
+        }
+    }
+    
+    /**
+     * 计算6方向邻居的总 FE 需求
+     */
+    private int calculateExternalDemand() {
+        if (level == null) return 0;
+        
+        int totalDemand = 0;
         for (Direction direction : Direction.values()) {
             var neighborPos = getBlockPos().relative(direction);
             var neighborBE = level.getBlockEntity(neighborPos);
+            
             if (neighborBE == null) continue;
             
             var cap = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
@@ -108,28 +150,84 @@ public class RSToFEConverterBlockEntity extends NetworkNodeBlockEntity<RSToFENet
             var handler = cap.orElse(null);
             if (handler == null) continue;
             
-            // 该面有邻居，额外抽取 BONUS_PER_SIDE 的能量并存入缓存
-            int bonusExtract = Math.min(BONUS_PER_SIDE, baseStorage.getEnergyStored());
-            if (bonusExtract <= 0) continue;
+            // 模拟检测邻居能接收多少
+            totalDemand += handler.receiveEnergy(Integer.MAX_VALUE, true);
+        }
+        
+        return totalDemand;
+    }
+    
+    /**
+     * 从内部缓存输出 FE 到邻居（完全参照 AE2 实现）
+     */
+    private void emitFEToNeighbors(int maxOutput) {
+        if (level == null || maxOutput <= 0) return;
+        
+        // 计算可用的FE总量（基于当前内部缓存）
+        int availableFE = internalStorage.getEnergyStored();
+        
+        // 限制本tick的最大输出
+        int maxOutputThisTick = Math.min(availableFE, maxOutput);
+        if (maxOutputThisTick <= 0) return;
+        
+        // 收集所有有需求的邻居
+        List<FEDemandInfo> demands = new ArrayList<>();
+        for (Direction direction : Direction.values()) {
+            var neighborPos = getBlockPos().relative(direction);
+            if (this.level == null) continue;
+            var neighborBE = this.level.getBlockEntity(neighborPos);
+            if (neighborBE == null) continue;
             
-            baseStorage.extractEnergyBypassCanExtract(bonusExtract, false);
-            internalStorage.receiveEnergy(bonusExtract, false);
-            setChanged();
+            // 获取邻居的FE能力
+            var optionalHandler = neighborBE.getCapability(ForgeCapabilities.ENERGY, direction.getOpposite());
+            if (!optionalHandler.isPresent()) continue;
             
-            // 从缓存推送到该面的邻居
-            int canReceive = handler.receiveEnergy(bonusExtract, true);
-            if (canReceive > 0) {
-                int actuallySent = handler.receiveEnergy(canReceive, false);
-                if (actuallySent > 0) {
-                    // 从缓存扣除
-                    internalStorage.extractEnergy(actuallySent, false);
-                    setChanged();
-                }
+            var handler = optionalHandler.orElse(null);
+            if (handler == null) continue;
+            
+            // 模拟检测：邻居这个tick最多能接收多少FE
+            int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
+            if (canReceive <= 0) continue;
+            
+            demands.add(new FEDemandInfo(handler, canReceive));
+        }
+        
+        if (demands.isEmpty()) return;
+        
+        // 按需求比例分配可用FE
+        int totalDemand = demands.stream().mapToInt(d -> d.demand).sum();
+        int remainingOutput = maxOutputThisTick;
+        
+        for (FEDemandInfo demand : demands) {
+            if (remainingOutput <= 0) break;
+            
+            // 按比例分配
+            int allocated = totalDemand > 0 ? (int) Math.floor((double) demand.demand / totalDemand * maxOutputThisTick) : 0;
+            allocated = Math.min(allocated, remainingOutput);
+            allocated = Math.min(allocated, demand.demand);
+            
+            if (allocated <= 0) continue;
+            
+            // 实际发送FE（从内部缓存提取）
+            int actuallySent = demand.handler.receiveEnergy(allocated, false);
+            if (actuallySent > 0) {
+                // 从内部缓存扣除
+                internalStorage.extractEnergy(actuallySent, false);
+                remainingOutput -= actuallySent;
+                setChanged();
             }
         }
     }
     
-
+    private static class FEDemandInfo {
+        IEnergyStorage handler;
+        int demand;
+        
+        FEDemandInfo(IEnergyStorage handler, int demand) {
+            this.handler = handler;
+            this.demand = demand;
+        }
+    }
 
     // ==================== IEnergyStorage 实现 ====================
 
