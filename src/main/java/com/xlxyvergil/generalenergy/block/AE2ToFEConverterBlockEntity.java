@@ -25,10 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.energy.IEnergyStorage;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity implements IGridTickable {
 
@@ -44,10 +41,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         this.setInternalMaxPower(MAX_AE_POWER);
         
         this.getMainNode()
-            .setIdlePowerUsage(BASE_AE_CONSUMPTION)
+            .setIdlePowerUsage(0)
             .addService(IGridTickable.class, this);
-        // 不设置为公共电源存储，防止网络直接注入AE（会导致瞬间填满）
-        // 我们通过extractAEAndConvertToFE主动控制提取速度
     }
 
     /**
@@ -141,27 +136,29 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
     // IGridTickable接口实现 - 告诉AE2我们需要被tick
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        // 每tick都调用，类似于Charger的tick速率
         return new TickingRequest(TickRates.Charger, false, true);
     }
 
-    // IGridTickable接口实现 - AE2网格定期调用此方法进行tick
+    // IGridTickable接口实现 - AE2网格定期调用（仅用于保持网络连接）
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        var grid = getMainNode().getGrid();
-        if (grid == null) return TickRateModulation.SLOWER;
+        return TickRateModulation.SLOWER;
+    }
+    
+    // 原生 tick() - 每 Tick 执行，负责从网络提取能量并推送到邻居
+    public void tick() {
+        if (level == null || level.isClientSide()) return;
         
-        // 第1步：检测6个方向的总FE需求
-        int totalFEDemand = 0;
-        int[] faceDemands = new int[6];  // 记录每个面的需求
-        for (int i = 0; i < Direction.values().length; i++) {
-            Direction direction = Direction.values()[i];
+        var grid = getMainNode().getGrid();
+        if (grid == null) return;
+        
+        // 1. 计算有效连接面数
+        int connectedSides = 0;
+        for (Direction direction : Direction.values()) {
             var neighborPos = this.worldPosition.relative(direction);
-            if (this.level == null) continue;
             var neighborBE = this.level.getBlockEntity(neighborPos);
             if (neighborBE == null) continue;
             
-            // 跳过AE2 Controller防止循环
             String beClassName = neighborBE.getClass().getName();
             if (beClassName.contains("ControllerBlockEntity") || 
                 beClassName.contains("appeng.blockentity.networking.ControllerBlockEntity")) {
@@ -207,20 +204,13 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             updateBlockState();
         }
         
-        // 第5步：对外输出FE
+        // 4. 从内部缓存提取 AE 转换为 FE，推送到邻居
         emitFEToNeighbors();
-        
-        return TickRateModulation.FASTER;
     }
     
-    /**
-     * 对外输出FE（参考Mekanism的CableUtils.emit逻辑）
-     * @return 实际输出的FE总量
-     */
-    private int emitFEToNeighbors() {
-        int totalSent = 0;
+    private void emitFEToNeighbors() {
+        if (this.level == null || this.level.isClientSide()) return;
         
-        // 计算可用的FE总量（基于当前AE缓存）
         double currentAE = getInternalCurrentPower();
         int availableFE = (int) Math.floor(currentAE * AE_TO_FE_RATIO);
         
@@ -228,11 +218,8 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
         int maxOutputThisTick = Math.min(availableFE, MAX_FE_OUTPUT_PER_CONVERTER);
         if (maxOutputThisTick <= 0) return 0;
         
-        // 收集所有有需求的邻居
-        List<FEDemandInfo> demands = new ArrayList<>();
         for (Direction direction : Direction.values()) {
             var neighborPos = this.worldPosition.relative(direction);
-            if (this.level == null) continue;
             var neighborBE = this.level.getBlockEntity(neighborPos);
             if (neighborBE == null) continue;
             
@@ -254,24 +241,19 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
             int canReceive = handler.receiveEnergy(Integer.MAX_VALUE, true);
             if (canReceive <= 0) continue;
             
-            demands.add(new FEDemandInfo(handler, canReceive));
-        }
-        
-        if (demands.isEmpty()) return 0;
-        
-        // 按需求比例分配可用FE
-        int totalDemand = demands.stream().mapToInt(d -> d.demand).sum();
-        int remainingOutput = maxOutputThisTick;
-        
-        for (FEDemandInfo demand : demands) {
-            if (remainingOutput <= 0) break;
+            var handler = cap.orElse(null);
+            if (handler == null) continue;
             
-            // 按比例分配
-            int allocated = totalDemand > 0 ? (int) Math.floor((double) demand.demand / totalDemand * maxOutputThisTick) : 0;
-            allocated = Math.min(allocated, remainingOutput);
-            allocated = Math.min(allocated, demand.demand);
+            // 计算该面可推送的 FE 量（单面奖励对应的 FE）
+            int feToSend = (int) Math.floor(AE_BONUS_PER_SIDE * PowerMultiplier.CONFIG.multiplier);
+            if (feToSend <= 0) continue;
             
-            if (allocated <= 0) continue;
+            // 检查缓存是否有足够的 AE 转换为 FE
+            double aeNeeded = feToSend / PowerMultiplier.CONFIG.multiplier;
+            if (currentAE < aeNeeded) {
+                feToSend = (int) Math.floor(currentAE * PowerMultiplier.CONFIG.multiplier);
+                if (feToSend <= 0) continue;
+            }
             
             // 实际发送FE（从AE转换）
             int actuallySent = demand.handler.receiveEnergy(allocated, false);
@@ -283,18 +265,19 @@ public class AE2ToFEConverterBlockEntity extends AENetworkPowerBlockEntity imple
                 remainingOutput -= actuallySent;
             }
         }
-        
-        return totalSent;
     }
     
-    private static class FEDemandInfo {
-        IEnergyStorage handler;
-        int demand;
-        
-        FEDemandInfo(IEnergyStorage handler, int demand) {
-            this.handler = handler;
-            this.demand = demand;
-        }
+    @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        tag.putDouble("internalCurrentPower", this.getInternalCurrentPower());
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        this.setInternalCurrentPower(tag.getDouble("internalCurrentPower"));
     }
 
     @Override
